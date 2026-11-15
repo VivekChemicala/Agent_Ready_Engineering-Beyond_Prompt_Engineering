@@ -26,25 +26,28 @@ flake8 src tests
 PYTHONPATH=src python -m txn_pipeline --input data/input --output out
 ```
 
-`run_pipeline(input_dir, output_dir)` reads every `partition-<N>.jsonl` (in
-partition order, then file order) and writes to `output_dir`:
+`run_pipeline(input_dir, output_dir)` reads every `partition-<N>.jsonl` in
+numeric order of `N`, line by line, and writes rows in that order to
+`output_dir`:
 
-- `valid.jsonl` - accepted messages, each with an added `partition` field.
-- `rejects.jsonl` - one record per rejected message: `partition`, `file`,
-  `line_number`, `offset`, `reason`, `errors`, and the `raw` line.
-- `metrics.json` - totals, `rejects_by_reason`, reject rate, valid amount per
-  currency and per-partition counts (also returned by `run_pipeline` and
-  printed by the CLI).
+- `valid.jsonl`: `transaction_id`, `customer_id`, `amount`, `currency`,
+  `event_time`, `merchant_id`, `source_partition`, `source_offset`. Other
+  input fields are dropped.
+- `rejects.jsonl`: `source_partition`, `source_offset` (`null` if unreadable),
+  `reason_code`, `reason_detail`, `raw` (the original line).
+- `metrics.json`: `schema_version` (`"1.0"`), `input_records`, `valid_records`,
+  `rejected_records`, `rejects_by_reason` (all five codes), and `partitions`
+  (`{"<N>": {input_records, valid_records, rejected_records}}`). It is also
+  returned by `run_pipeline` and printed by the CLI.
 
-Reject reasons, first matching rule wins:
+Each event gets one reason code. The first failing check wins:
 
-| reason | rule |
+| reason_code | rule |
 | --- | --- |
-| `malformed_json` | line is not valid JSON |
-| `null_customer_id` | `value.customer_id` is `null` |
-| `schema_violation` | fails `schemas/transaction_event.schema.json` (wrong type, missing field, non-positive amount, bad `event_time`, ...) |
-| `unapproved_currency` | currency not in `config/approved_currencies.json` (case-sensitive) |
-| `duplicate_transaction_id` | `transaction_id` already accepted earlier in the run, in any partition |
+| `MALFORMED_EVENT` | not valid UTF-8/JSON, or not a JSON object |
+| `NULL_CUSTOMER_ID` | `value.customer_id` is `null`, empty or whitespace |
+| `SCHEMA_VIOLATION` | breaks `schemas/transaction_event.schema.json`, e.g. a missing field, a wrong type, an `amount` that is not a finite number > 0, or an `event_time` that is not a real `YYYY-MM-DDTHH:MM:SS[.ffffff]Z` |
+| `INVALID_CURRENCY` | not in `config/approved_currencies.json` (exact, case-sensitive; read on every run) |
+| `DUPLICATE_TRANSACTION` | `transaction_id` already accepted earlier in the run (any partition) |
 
-Blank lines are not messages; they are skipped and counted in
-`blank_lines_skipped`.
+Blank or whitespace-only lines are skipped and not counted.

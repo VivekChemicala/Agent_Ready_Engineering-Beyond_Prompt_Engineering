@@ -3,166 +3,236 @@
 from __future__ import annotations
 
 import json
+import math
 import re
-from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable, Iterator
+from typing import Any, Iterator
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_SCHEMA_PATH = PROJECT_ROOT / "schemas" / "transaction_event.schema.json"
-DEFAULT_CURRENCIES_PATH = PROJECT_ROOT / "config" / "approved_currencies.json"
+CURRENCIES_RELATIVE_PATH = Path("config") / "approved_currencies.json"
 
 PARTITION_FILE_RE = re.compile(r"^partition-(\d+)\.jsonl$")
+EVENT_TIME_RE = re.compile(
+    r"^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?Z$"
+)
 
 VALID_FILE = "valid.jsonl"
 REJECTS_FILE = "rejects.jsonl"
 METRICS_FILE = "metrics.json"
+METRICS_SCHEMA_VERSION = "1.0"
 
-REASON_MALFORMED_JSON = "malformed_json"
-REASON_SCHEMA = "schema_violation"
-REASON_NULL_CUSTOMER = "null_customer_id"
-REASON_CURRENCY = "unapproved_currency"
-REASON_DUPLICATE = "duplicate_transaction_id"
+MALFORMED_EVENT = "MALFORMED_EVENT"
+NULL_CUSTOMER_ID = "NULL_CUSTOMER_ID"
+SCHEMA_VIOLATION = "SCHEMA_VIOLATION"
+INVALID_CURRENCY = "INVALID_CURRENCY"
+DUPLICATE_TRANSACTION = "DUPLICATE_TRANSACTION"
+REASON_CODES = (
+    MALFORMED_EVENT,
+    NULL_CUSTOMER_ID,
+    SCHEMA_VIOLATION,
+    INVALID_CURRENCY,
+    DUPLICATE_TRANSACTION,
+)
 
-_JSON_TYPES = {
-    "object": lambda v: isinstance(v, dict),
-    "array": lambda v: isinstance(v, list),
-    "string": lambda v: isinstance(v, str),
-    "integer": lambda v: isinstance(v, int) and not isinstance(v, bool),
-    "number": lambda v: isinstance(v, (int, float)) and not isinstance(v, bool),
-    "boolean": lambda v: isinstance(v, bool),
-    "null": lambda v: v is None,
-}
+TRANSACTION_FIELDS = (
+    "transaction_id",
+    "customer_id",
+    "amount",
+    "currency",
+    "event_time",
+    "merchant_id",
+)
 
 
-def load_schema(path: str | Path = DEFAULT_SCHEMA_PATH) -> dict:
+class RejectedEvent(Exception):
+    def __init__(self, reason_code: str, reason_detail: str):
+        super().__init__(reason_detail)
+        self.reason_code = reason_code
+        self.reason_detail = reason_detail
+
+
+def load_approved_currencies(path: str | Path | None = None) -> frozenset:
+    """Read the approved set; defaults to the project-root config file."""
+    if path is None:
+        path = PROJECT_ROOT / CURRENCIES_RELATIVE_PATH
     with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
-
-
-def load_approved_currencies(path: str | Path = DEFAULT_CURRENCIES_PATH) -> frozenset:
-    with open(path, encoding="utf-8") as fh:
-        return frozenset(json.load(fh)["approved_currencies"])
-
-
-def _is_datetime(value: str) -> bool:
-    """RFC 3339 date-time: ISO 8601 with a 'T' separator and a UTC offset."""
-    if "T" not in value and "t" not in value:
-        return False
-    text = value[:-1] + "+00:00" if value[-1:] in ("Z", "z") else value
-    try:
-        parsed = datetime.fromisoformat(text)
-    except ValueError:
-        return False
-    return parsed.tzinfo is not None
-
-
-def validate_schema(instance: Any, schema: dict, path: str = "$") -> list[str]:
-    """Validate ``instance`` against the JSON Schema subset used by this project.
-
-    Supports ``type``, ``required``, ``properties``, ``minLength``, ``minimum``,
-    ``exclusiveMinimum`` and ``format: date-time``. Returns error messages.
-    """
-    errors: list[str] = []
-    expected = schema.get("type")
-    if expected is not None:
-        types = expected if isinstance(expected, list) else [expected]
-        if not any(_JSON_TYPES[t](instance) for t in types):
-            errors.append(
-                f"{path}: expected {' or '.join(types)}, "
-                f"got {_json_type_name(instance)}"
-            )
-            return errors
-
-    if isinstance(instance, dict):
-        for name in schema.get("required", []):
-            if name not in instance:
-                errors.append(f"{path}.{name}: required field missing")
-        for name, sub in schema.get("properties", {}).items():
-            if name in instance:
-                errors.extend(validate_schema(instance[name], sub, f"{path}.{name}"))
-
-    if isinstance(instance, str):
-        if len(instance) < schema.get("minLength", 0):
-            errors.append(f"{path}: shorter than {schema['minLength']} characters")
-        if schema.get("format") == "date-time" and not _is_datetime(instance):
-            errors.append(f"{path}: not an RFC 3339 date-time")
-
-    if _JSON_TYPES["number"](instance):
-        if "minimum" in schema and instance < schema["minimum"]:
-            errors.append(f"{path}: less than minimum {schema['minimum']}")
-        if "exclusiveMinimum" in schema and instance <= schema["exclusiveMinimum"]:
-            errors.append(
-                f"{path}: must be greater than {schema['exclusiveMinimum']}"
-            )
-    return errors
-
-
-def _json_type_name(value: Any) -> str:
-    for name in ("null", "boolean", "integer", "number", "string", "array", "object"):
-        if _JSON_TYPES[name](value):
-            return name
-    return type(value).__name__
+        currencies = json.load(fh)["approved_currencies"]
+    return frozenset(c for c in currencies if isinstance(c, str))
 
 
 def discover_partitions(input_dir: Path) -> list[tuple[int, Path]]:
-    """Return ``(partition, path)`` pairs sorted by partition number."""
+    """Return ``(partition, path)`` pairs sorted by numeric partition."""
     found = []
     for path in input_dir.iterdir():
         match = PARTITION_FILE_RE.match(path.name)
         if match and path.is_file():
             found.append((int(match.group(1)), path))
-    return sorted(found)
+    return sorted(found, key=lambda item: (item[0], item[1].name))
 
 
-def _read_lines(path: Path) -> Iterator[tuple[int, str]]:
-    with open(path, encoding="utf-8") as fh:
-        for line_number, line in enumerate(fh, start=1):
-            yield line_number, line.rstrip("\r\n")
+def _read_lines(path: Path) -> Iterator[str | bytes]:
+    """Yield lines without their line terminator; undecodable lines as bytes."""
+    with open(path, "rb") as fh:
+        for raw in fh:
+            raw = raw.rstrip(b"\r\n")
+            try:
+                yield raw.decode("utf-8")
+            except UnicodeDecodeError:
+                yield raw
 
 
-def classify(
-    message: Any,
-    schema: dict,
-    approved_currencies: Iterable[str],
-    seen_transaction_ids: set,
-) -> tuple[str | None, list[str]]:
-    """Return ``(reason, errors)``; ``reason`` is ``None`` for a valid event.
+def parse_message(line: str) -> dict:
+    try:
+        message = json.loads(line)
+    except (ValueError, RecursionError) as exc:
+        raise RejectedEvent(MALFORMED_EVENT, f"invalid JSON: {exc}") from None
+    if not isinstance(message, dict):
+        raise RejectedEvent(
+            MALFORMED_EVENT, f"message is a JSON {_type_name(message)}, not an object"
+        )
+    return message
 
-    Checks, in precedence order: null customer id, schema, currency, duplicate.
-    Only accepted events register their transaction id, so a rejected event
-    never blocks a later valid event with the same id.
-    """
-    value = message.get("value") if isinstance(message, dict) else None
-    if isinstance(value, dict) and "customer_id" in value and (
-        value["customer_id"] is None
+
+def _type_name(value: Any) -> str:
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return type(value).__name__
+
+
+def _is_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def read_offset(message: Any) -> int | None:
+    if isinstance(message, dict) and _is_int(message.get("offset")):
+        return message["offset"]
+    return None
+
+
+def _is_valid_event_time(value: str) -> bool:
+    match = EVENT_TIME_RE.match(value)
+    if not match:
+        return False
+    try:
+        datetime(*(int(part) for part in match.groups()[:6]))
+    except ValueError:
+        return False
+    return True
+
+
+def _is_positive_finite_number(value: Any) -> bool:
+    if isinstance(value, bool):
+        return False
+    if _is_int(value):
+        return value > 0
+    return isinstance(value, float) and math.isfinite(value) and value > 0
+
+
+def _non_empty_string(value: Any) -> bool:
+    return isinstance(value, str) and len(value) > 0
+
+
+def check_customer_id(message: dict) -> None:
+    value = message.get("value")
+    if not isinstance(value, dict) or "customer_id" not in value:
+        return
+    customer_id = value["customer_id"]
+    if customer_id is None:
+        raise RejectedEvent(NULL_CUSTOMER_ID, "value.customer_id is null")
+    if isinstance(customer_id, str) and not customer_id.strip():
+        raise RejectedEvent(NULL_CUSTOMER_ID, "value.customer_id is blank")
+
+
+def schema_errors(message: dict) -> list[str]:
+    """Check ``message`` against schemas/transaction_event.schema.json rules."""
+    errors = []
+    if "offset" not in message:
+        errors.append("offset: required field missing")
+    elif not _is_int(message["offset"]) or message["offset"] < 0:
+        errors.append("offset: must be a non-negative integer")
+    if "key" in message and not (
+        message["key"] is None or isinstance(message["key"], str)
     ):
-        return REASON_NULL_CUSTOMER, ["$.value.customer_id: is null"]
+        errors.append("key: must be a string or null")
+    if "timestamp" in message and not _is_int(message["timestamp"]):
+        errors.append("timestamp: must be an integer")
 
-    errors = validate_schema(message, schema)
-    if errors:
-        return REASON_SCHEMA, errors
+    if "value" not in message:
+        errors.append("value: required field missing")
+        return errors
+    value = message["value"]
+    if not isinstance(value, dict):
+        errors.append(f"value: must be an object, got {_type_name(value)}")
+        return errors
 
-    currency = value["currency"]
-    if currency not in approved_currencies:
-        return REASON_CURRENCY, [f"$.value.currency: {currency!r} is not approved"]
+    checks = {
+        "transaction_id": (_non_empty_string, "must be a non-empty string"),
+        "customer_id": (_non_empty_string, "must be a non-empty string"),
+        "amount": (_is_positive_finite_number, "must be a finite number > 0"),
+        "currency": (lambda v: isinstance(v, str), "must be a string"),
+        "event_time": (
+            lambda v: isinstance(v, str) and _is_valid_event_time(v),
+            "must be a real date-time formatted YYYY-MM-DDTHH:MM:SS[.ffffff]Z",
+        ),
+        "merchant_id": (_non_empty_string, "must be a non-empty string"),
+    }
+    for name, (is_valid, message_text) in checks.items():
+        if name not in value:
+            errors.append(f"value.{name}: required field missing")
+        elif not is_valid(value[name]):
+            errors.append(f"value.{name}: {message_text}")
+    return errors
 
-    txn_id = value["transaction_id"]
-    if txn_id in seen_transaction_ids:
-        return REASON_DUPLICATE, [
-            f"$.value.transaction_id: {txn_id!r} was already accepted"
-        ]
-    return None, []
 
-
-def run_pipeline(
-    input_dir: str | Path,
-    output_dir: str | Path,
-    *,
-    schema_path: str | Path = DEFAULT_SCHEMA_PATH,
-    currencies_path: str | Path = DEFAULT_CURRENCIES_PATH,
+def validate(
+    line: str | bytes, approved_currencies: frozenset, accepted_ids: set
 ) -> dict:
+    """Return the parsed message or raise ``RejectedEvent``.
+
+    The first failing check wins: MALFORMED_EVENT > NULL_CUSTOMER_ID >
+    SCHEMA_VIOLATION > INVALID_CURRENCY > DUPLICATE_TRANSACTION.
+    """
+    if isinstance(line, bytes):
+        raise RejectedEvent(MALFORMED_EVENT, "line is not valid UTF-8")
+    message = parse_message(line)
+    check_customer_id(message)
+    errors = schema_errors(message)
+    if errors:
+        raise RejectedEvent(SCHEMA_VIOLATION, "; ".join(errors))
+    value = message["value"]
+    if value["currency"] not in approved_currencies:
+        raise RejectedEvent(
+            INVALID_CURRENCY, f"currency {value['currency']!r} is not approved"
+        )
+    if value["transaction_id"] in accepted_ids:
+        raise RejectedEvent(
+            DUPLICATE_TRANSACTION,
+            f"transaction_id {value['transaction_id']!r} was already accepted",
+        )
+    return message
+
+
+def _try_parse(line: str | bytes) -> Any:
+    if isinstance(line, bytes):
+        return None
+    try:
+        return json.loads(line)
+    except (ValueError, RecursionError):
+        return None
+
+
+def run_pipeline(input_dir: str | Path, output_dir: str | Path) -> dict:
     """Process every partition file in ``input_dir`` into ``output_dir``.
 
     Writes ``valid.jsonl``, ``rejects.jsonl`` and ``metrics.json`` and returns
@@ -173,92 +243,61 @@ def run_pipeline(
     if not input_dir.is_dir():
         raise FileNotFoundError(f"input directory not found: {input_dir}")
 
-    schema = load_schema(schema_path)
-    approved = load_approved_currencies(currencies_path)
+    approved = load_approved_currencies()
     partitions = discover_partitions(input_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    seen_ids: set = set()
-    reasons: Counter = Counter()
+    accepted_ids: set = set()
+    rejects_by_reason = {code: 0 for code in REASON_CODES}
     per_partition: dict[str, dict] = {}
-    valid_amounts: dict[str, float] = {}
-    totals = Counter()
 
     with open(output_dir / VALID_FILE, "w", encoding="utf-8") as valid_fh, open(
         output_dir / REJECTS_FILE, "w", encoding="utf-8"
     ) as rejects_fh:
         for partition, path in partitions:
-            stats = Counter()
-            for line_number, line in _read_lines(path):
+            stats = per_partition.setdefault(
+                str(partition),
+                {"input_records": 0, "valid_records": 0, "rejected_records": 0},
+            )
+            for line in _read_lines(path):
                 if not line.strip():
-                    stats["blank_lines_skipped"] += 1
                     continue
-                stats["messages_read"] += 1
-                source = {
-                    "partition": partition,
-                    "file": path.name,
-                    "line_number": line_number,
-                }
+                stats["input_records"] += 1
                 try:
-                    message = json.loads(line)
-                except json.JSONDecodeError as exc:
-                    reason, errors, message = REASON_MALFORMED_JSON, [str(exc)], None
-                else:
-                    reason, errors = classify(message, schema, approved, seen_ids)
-
-                if reason is None:
-                    value = message["value"]
-                    seen_ids.add(value["transaction_id"])
-                    record = {"partition": partition, **message}
-                    valid_fh.write(json.dumps(record) + "\n")
-                    stats["valid"] += 1
-                    valid_amounts[value["currency"]] = (
-                        valid_amounts.get(value["currency"], 0.0) + value["amount"]
-                    )
+                    message = validate(line, approved, accepted_ids)
+                except RejectedEvent as rejected:
+                    raw = line
+                    if isinstance(raw, bytes):
+                        raw = raw.decode("utf-8", "replace")
+                    reject = {
+                        "source_partition": partition,
+                        "source_offset": read_offset(_try_parse(line)),
+                        "reason_code": rejected.reason_code,
+                        "reason_detail": rejected.reason_detail,
+                        "raw": raw,
+                    }
+                    rejects_fh.write(json.dumps(reject) + "\n")
+                    stats["rejected_records"] += 1
+                    rejects_by_reason[rejected.reason_code] += 1
                     continue
 
-                offset = message.get("offset") if isinstance(message, dict) else None
-                reject = {
-                    **source,
-                    "offset": offset if isinstance(offset, int) else None,
-                    "reason": reason,
-                    "errors": errors,
-                    "raw": line,
-                }
-                rejects_fh.write(json.dumps(reject) + "\n")
-                stats["rejected"] += 1
-                reasons[reason] += 1
+                value = message["value"]
+                accepted_ids.add(value["transaction_id"])
+                row = {name: value[name] for name in TRANSACTION_FIELDS}
+                row["source_partition"] = partition
+                row["source_offset"] = message["offset"]
+                valid_fh.write(json.dumps(row) + "\n")
+                stats["valid_records"] += 1
 
-            per_partition[str(partition)] = {
-                "file": path.name,
-                "messages_read": stats["messages_read"],
-                "valid": stats["valid"],
-                "rejected": stats["rejected"],
-                "blank_lines_skipped": stats["blank_lines_skipped"],
-            }
-            totals.update(stats)
-
-    read = totals["messages_read"]
     metrics = {
-        "input_dir": str(input_dir),
-        "output_dir": str(output_dir),
-        "partitions_processed": len(partitions),
-        "messages_read": read,
-        "valid": totals["valid"],
-        "rejected": totals["rejected"],
-        "blank_lines_skipped": totals["blank_lines_skipped"],
-        "reject_rate": round(totals["rejected"] / read, 4) if read else 0.0,
-        "rejects_by_reason": {r: reasons[r] for r in sorted(reasons)},
-        "unique_valid_transaction_ids": len(seen_ids),
-        "valid_amount_by_currency": {
-            c: round(a, 2) for c, a in sorted(valid_amounts.items())
-        },
+        "schema_version": METRICS_SCHEMA_VERSION,
+        "input_records": sum(p["input_records"] for p in per_partition.values()),
+        "valid_records": sum(p["valid_records"] for p in per_partition.values()),
+        "rejected_records": sum(
+            p["rejected_records"] for p in per_partition.values()
+        ),
+        "rejects_by_reason": rejects_by_reason,
         "partitions": per_partition,
-        "outputs": {
-            "valid": VALID_FILE,
-            "rejects": REJECTS_FILE,
-            "metrics": METRICS_FILE,
-        },
     }
     with open(output_dir / METRICS_FILE, "w", encoding="utf-8") as fh:
         json.dump(metrics, fh, indent=2)
