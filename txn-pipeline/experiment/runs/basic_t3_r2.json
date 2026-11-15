@@ -1,0 +1,43 @@
+{
+  "project": "/home/ubuntu/repos/Python/txn-pipeline/experiment/runs/worktrees/basic_t3_r2/txn-pipeline",
+  "added_requirement_files": [],
+  "pytest": {
+    "passed": true,
+    "tests": 97,
+    "tail": "........................................................................ [ 74%]\n.........................                                                [100%]\n97 passed in 0.26s"
+  },
+  "flake8": {
+    "passed": true,
+    "issues": 0,
+    "tail": ""
+  },
+  "cli_smoke": {
+    "passed": true,
+    "tail": "      \"valid_records\": 9,\n      \"rejected_records\": 6\n    },\n    \"2\": {\n      \"input_records\": 14,\n      \"valid_records\": 9,\n      \"rejected_records\": 5\n    }\n  }\n}"
+  },
+  "acceptance": {
+    "TestRequirements": {
+      "passed": 6,
+      "total": 6,
+      "failed": []
+    },
+    "TestContract": {
+      "passed": 19,
+      "total": 19,
+      "failed": []
+    },
+    "TestRobustness": {
+      "passed": 4,
+      "total": 4,
+      "failed": []
+    }
+  },
+  "fingerprint": "7a94bae2e1d92df7",
+  "requirements_pass": true,
+  "contract_pass": true,
+  "robustness_pass": true,
+  "accepted": true,
+  "commit": "19d136264f2afa3bce869ddf32e8289c3875c8b7",
+  "delivered_at": 1794769051,
+  "diffstat": " 4 files changed, 837 insertions(+), 3 deletions(-)"
+}

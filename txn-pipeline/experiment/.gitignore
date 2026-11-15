@@ -1,0 +1,4 @@
+!runs/
+runs/worktrees/
+__pycache__/
+trials.lock
