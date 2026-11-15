@@ -1,53 +1,63 @@
 """Ingest Kafka-style transaction events from JSON Lines files.
 
 Each ``partition-<N>.jsonl`` file in the input directory is one partition;
-each non-blank line is one message. Every message ends up in exactly one of
+each non-blank line is one event. Every event ends up in exactly one of
 ``valid.jsonl`` or ``rejects.jsonl``, and ``metrics.json`` summarises the run.
 """
 
 from __future__ import annotations
 
 import json
+import math
 import re
-from collections import Counter
+from datetime import datetime
 from pathlib import Path
-from typing import Any, Iterable
-
-from txn_pipeline.schema import iter_errors
+from typing import Any, Iterator
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_SCHEMA_PATH = PROJECT_ROOT / "schemas" / "transaction_event.schema.json"
 DEFAULT_CURRENCIES_PATH = PROJECT_ROOT / "config" / "approved_currencies.json"
 
 PARTITION_FILE = re.compile(r"^partition-(\d+)\.jsonl$")
+EVENT_TIME = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?Z$")
 
 VALID_FILE = "valid.jsonl"
 REJECTS_FILE = "rejects.jsonl"
 METRICS_FILE = "metrics.json"
+METRICS_SCHEMA_VERSION = "1.0"
 
-MALFORMED_JSON = "malformed_json"
-NULL_CUSTOMER_ID = "null_customer_id"
-SCHEMA_VIOLATION = "schema_violation"
-UNAPPROVED_CURRENCY = "unapproved_currency"
-DUPLICATE_TRANSACTION_ID = "duplicate_transaction_id"
+MALFORMED_EVENT = "MALFORMED_EVENT"
+NULL_CUSTOMER_ID = "NULL_CUSTOMER_ID"
+SCHEMA_VIOLATION = "SCHEMA_VIOLATION"
+INVALID_CURRENCY = "INVALID_CURRENCY"
+DUPLICATE_TRANSACTION = "DUPLICATE_TRANSACTION"
 
-# A rejected event may break several rules; its primary ``reason`` is the
-# first matching code in this order. All violations are kept in ``errors``.
-REASON_PRIORITY = (
-    MALFORMED_JSON,
+# Checks run in this order; the first failing one is the event's reason.
+REASON_CODES = (
+    MALFORMED_EVENT,
     NULL_CUSTOMER_ID,
     SCHEMA_VIOLATION,
-    UNAPPROVED_CURRENCY,
-    DUPLICATE_TRANSACTION_ID,
+    INVALID_CURRENCY,
+    DUPLICATE_TRANSACTION,
+)
+
+VALUE_FIELDS = (
+    "transaction_id",
+    "customer_id",
+    "amount",
+    "currency",
+    "event_time",
+    "merchant_id",
 )
 
 
-def load_schema(path: str | Path = DEFAULT_SCHEMA_PATH) -> dict:
-    with open(path, encoding="utf-8") as fh:
-        return json.load(fh)
+class Rejection(Exception):
+    def __init__(self, code: str, detail: str) -> None:
+        super().__init__(detail)
+        self.code = code
+        self.detail = detail
 
 
-def load_approved_currencies(path: str | Path = DEFAULT_CURRENCIES_PATH) -> frozenset:
+def load_approved_currencies(path: str | Path) -> frozenset[str]:
     with open(path, encoding="utf-8") as fh:
         return frozenset(json.load(fh)["approved_currencies"])
 
@@ -66,156 +76,167 @@ def discover_partitions(input_dir: Path) -> list[tuple[int, Path]]:
     return sorted(found)
 
 
-def validate_message(
-    message: Any,
-    schema: dict,
-    approved_currencies: frozenset,
-) -> list[dict]:
-    """Return stateless rule violations (everything except duplicates)."""
-    errors = []
-    value = message.get("value") if isinstance(message, dict) else None
-    customer_is_null = isinstance(value, dict) and (
-        "customer_id" in value and value["customer_id"] is None
-    )
+def parse_event(raw: str | bytes) -> dict:
+    """Parse one line as a JSON object, rejecting anything else as malformed."""
+    if isinstance(raw, bytes):
+        raise Rejection(MALFORMED_EVENT, "line is not valid UTF-8")
+    try:
+        event = json.loads(raw, parse_constant=_reject_constant)
+    except (ValueError, RecursionError) as exc:
+        raise Rejection(MALFORMED_EVENT, f"line is not valid JSON: {exc}") from None
+    if not isinstance(event, dict):
+        raise Rejection(
+            MALFORMED_EVENT,
+            f"event must be a JSON object, got {_type_name(event)}",
+        )
+    return event
 
-    for path, text in iter_errors(message, schema):
-        if customer_is_null and path == "value.customer_id":
-            continue
-        errors.append(_error(SCHEMA_VIOLATION, path, text))
 
-    if customer_is_null:
-        errors.append(
-            _error(NULL_CUSTOMER_ID, "value.customer_id", "customer_id is null")
+def read_offset(event: Any) -> int | None:
+    offset = event.get("offset") if isinstance(event, dict) else None
+    return offset if _is_int(offset) and offset >= 0 else None
+
+
+def check_customer_id(event: dict) -> None:
+    value = event.get("value")
+    if not isinstance(value, dict) or "customer_id" not in value:
+        return
+    customer_id = value["customer_id"]
+    if customer_id is None:
+        raise Rejection(NULL_CUSTOMER_ID, "customer_id is null")
+    if isinstance(customer_id, str) and not customer_id.strip():
+        raise Rejection(NULL_CUSTOMER_ID, "customer_id is blank")
+
+
+def check_schema(event: dict) -> None:
+    if "offset" not in event:
+        _schema_error("offset is required")
+    if not _is_int(event["offset"]) or event["offset"] < 0:
+        _schema_error("offset must be a non-negative integer")
+    if "key" in event and not (event["key"] is None or isinstance(event["key"], str)):
+        _schema_error("key must be a string or null")
+    if "timestamp" in event and not _is_int(event["timestamp"]):
+        _schema_error("timestamp must be an integer")
+    if "value" not in event:
+        _schema_error("value is required")
+    value = event["value"]
+    if not isinstance(value, dict):
+        _schema_error(f"value must be an object, got {_type_name(value)}")
+    for name in VALUE_FIELDS:
+        if name not in value:
+            _schema_error(f"value.{name} is required")
+    for name in ("transaction_id", "customer_id", "merchant_id"):
+        if not isinstance(value[name], str) or not value[name]:
+            _schema_error(f"value.{name} must be a non-empty string")
+    amount = value["amount"]
+    if not _is_number(amount):
+        _schema_error(f"value.amount must be a number, got {_type_name(amount)}")
+    if not _is_finite(amount):
+        _schema_error("value.amount must be finite")
+    if not amount > 0:
+        _schema_error("value.amount must be greater than 0")
+    if not isinstance(value["currency"], str):
+        _schema_error("value.currency must be a string")
+    if not is_valid_event_time(value["event_time"]):
+        _schema_error(
+            "value.event_time must be YYYY-MM-DDTHH:MM:SS[.ffffff]Z and a real date"
         )
 
-    if isinstance(value, dict) and isinstance(value.get("currency"), str):
-        currency = value["currency"]
-        if currency not in approved_currencies:
-            errors.append(
-                _error(
-                    UNAPPROVED_CURRENCY,
-                    "value.currency",
-                    f"currency {currency!r} is not in the approved set",
-                )
-            )
-    return errors
+
+def check_currency(event: dict, approved_currencies: frozenset[str]) -> None:
+    currency = event["value"]["currency"]
+    if currency not in approved_currencies:
+        raise Rejection(
+            INVALID_CURRENCY, f"currency {currency!r} is not in the approved set"
+        )
+
+
+def is_valid_event_time(value: Any) -> bool:
+    if not isinstance(value, str) or not EVENT_TIME.match(value):
+        return False
+    try:
+        datetime.strptime(value[:19], "%Y-%m-%dT%H:%M:%S")
+    except ValueError:
+        return False
+    return True
 
 
 def run_pipeline(
     input_dir: str | Path,
     output_dir: str | Path,
     *,
-    schema_path: str | Path = DEFAULT_SCHEMA_PATH,
-    currencies_path: str | Path = DEFAULT_CURRENCIES_PATH,
+    currencies_path: str | Path | None = None,
 ) -> dict:
     """Process every partition file in ``input_dir`` into ``output_dir``."""
     input_dir = Path(input_dir)
     output_dir = Path(output_dir)
-    schema = load_schema(schema_path)
-    approved_currencies = load_approved_currencies(currencies_path)
+    approved_currencies = load_approved_currencies(
+        DEFAULT_CURRENCIES_PATH if currencies_path is None else currencies_path
+    )
     partitions = discover_partitions(input_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    seen_transaction_ids: dict[str, dict] = {}
-    reasons: Counter = Counter()
-    violations: Counter = Counter()
-    valid_by_currency: Counter = Counter()
-    valid_amount_by_currency: dict[str, float] = {}
-    partition_metrics = []
-    totals = Counter()
+    accepted_ids: dict[str, tuple[int, int]] = {}
+    rejects_by_reason = {code: 0 for code in REASON_CODES}
+    partition_metrics: dict[str, dict] = {}
 
     with open(output_dir / VALID_FILE, "w", encoding="utf-8") as valid_out, open(
         output_dir / REJECTS_FILE, "w", encoding="utf-8"
     ) as rejects_out:
         for partition, path in partitions:
-            stats = Counter()
-            for line_number, raw in _read_lines(path):
-                stats["lines_read"] += 1
-                if not raw.strip():
-                    stats["blank_lines_skipped"] += 1
-                    continue
-                stats["messages_read"] += 1
-                source = {
-                    "partition": partition,
-                    "file": path.name,
-                    "line_number": line_number,
-                }
-
+            counts = {"input_records": 0, "valid_records": 0, "rejected_records": 0}
+            partition_metrics[str(partition)] = counts
+            for raw in _read_events(path):
+                counts["input_records"] += 1
+                event = None
                 try:
-                    message = json.loads(raw)
-                except json.JSONDecodeError as exc:
-                    message = None
-                    errors = [_error(MALFORMED_JSON, "<root>", f"invalid JSON: {exc}")]
-                else:
-                    errors = validate_message(message, schema, approved_currencies)
-
-                if not errors:
-                    txn_id = message["value"]["transaction_id"]
-                    first = seen_transaction_ids.get(txn_id)
+                    event = parse_event(raw)
+                    check_customer_id(event)
+                    check_schema(event)
+                    check_currency(event, approved_currencies)
+                    value = event["value"]
+                    first = accepted_ids.get(value["transaction_id"])
                     if first is not None:
-                        errors.append(
-                            _error(
-                                DUPLICATE_TRANSACTION_ID,
-                                "value.transaction_id",
-                                f"transaction_id {txn_id!r} already accepted from "
-                                f"partition {first['partition']} offset "
-                                f"{first['offset']}",
-                            )
+                        raise Rejection(
+                            DUPLICATE_TRANSACTION,
+                            f"transaction_id {value['transaction_id']!r} already "
+                            f"accepted at partition {first[0]} offset {first[1]}",
                         )
-                    else:
-                        seen_transaction_ids[txn_id] = {
-                            "partition": partition,
-                            "offset": message["offset"],
-                        }
-
-                if errors:
-                    reason = _primary_reason(errors)
-                    reasons[reason] += 1
-                    violations.update(e["code"] for e in errors)
-                    stats["rejected"] += 1
+                except Rejection as rejection:
+                    counts["rejected_records"] += 1
+                    rejects_by_reason[rejection.code] += 1
                     _write(
                         rejects_out,
-                        _reject_record(source, raw, message, reason, errors),
+                        {
+                            "source_partition": partition,
+                            "source_offset": read_offset(event),
+                            "reason_code": rejection.code,
+                            "reason_detail": rejection.detail,
+                            "raw": _raw_text(raw),
+                        },
                     )
-                else:
-                    value = message["value"]
-                    stats["valid"] += 1
-                    valid_by_currency[value["currency"]] += 1
-                    valid_amount_by_currency[value["currency"]] = (
-                        valid_amount_by_currency.get(value["currency"], 0.0)
-                        + value["amount"]
-                    )
-                    _write(valid_out, _valid_record(partition, message))
+                    continue
 
-            totals.update(stats)
-            partition_metrics.append(
-                {
-                    "partition": partition,
-                    "file": path.name,
-                    **{k: stats[k] for k in _COUNT_KEYS},
-                }
-            )
+                accepted_ids[value["transaction_id"]] = (partition, event["offset"])
+                counts["valid_records"] += 1
+                _write(
+                    valid_out,
+                    {
+                        **{name: value[name] for name in VALUE_FIELDS},
+                        "source_partition": partition,
+                        "source_offset": event["offset"],
+                    },
+                )
 
-    messages = totals["messages_read"]
     metrics = {
-        "input_dir": str(input_dir),
-        "output_dir": str(output_dir),
-        "partitions_processed": len(partitions),
-        **{k: totals[k] for k in _COUNT_KEYS},
-        "valid_rate": round(totals["valid"] / messages, 4) if messages else None,
-        "rejects_by_reason": {r: reasons[r] for r in REASON_PRIORITY},
-        "violations_by_rule": {r: violations[r] for r in REASON_PRIORITY},
-        "valid_by_currency": dict(sorted(valid_by_currency.items())),
-        "valid_amount_by_currency": {
-            c: round(a, 2) for c, a in sorted(valid_amount_by_currency.items())
-        },
+        "schema_version": METRICS_SCHEMA_VERSION,
+        "input_records": sum(p["input_records"] for p in partition_metrics.values()),
+        "valid_records": sum(p["valid_records"] for p in partition_metrics.values()),
+        "rejected_records": sum(
+            p["rejected_records"] for p in partition_metrics.values()
+        ),
+        "rejects_by_reason": rejects_by_reason,
         "partitions": partition_metrics,
-        "approved_currencies": sorted(approved_currencies),
-        "outputs": {
-            "valid": VALID_FILE,
-            "rejects": REJECTS_FILE,
-            "metrics": METRICS_FILE,
-        },
     }
     with open(output_dir / METRICS_FILE, "w", encoding="utf-8") as fh:
         json.dump(metrics, fh, indent=2)
@@ -223,54 +244,59 @@ def run_pipeline(
     return metrics
 
 
-_COUNT_KEYS = (
-    "lines_read",
-    "blank_lines_skipped",
-    "messages_read",
-    "valid",
-    "rejected",
-)
+def _read_events(path: Path) -> Iterator[str | bytes]:
+    """Yield non-blank lines (without the terminator) in file order.
+
+    Lines that are not valid UTF-8 are yielded as ``bytes`` so they can be
+    rejected as malformed instead of aborting the run.
+    """
+    with open(path, "rb") as fh:
+        for line in fh:
+            data = line.rstrip(b"\r\n")
+            try:
+                raw = data.decode("utf-8")
+            except UnicodeDecodeError:
+                yield data
+                continue
+            if raw.strip():
+                yield raw
 
 
-def _read_lines(path: Path) -> Iterable[tuple[int, str]]:
-    with open(path, encoding="utf-8") as fh:
-        for line_number, line in enumerate(fh, start=1):
-            yield line_number, line.rstrip("\r\n")
+def _raw_text(raw: str | bytes) -> str:
+    if isinstance(raw, bytes):
+        return raw.decode("utf-8", errors="replace")
+    return raw
 
 
-def _error(code: str, field: str, message: str) -> dict:
-    return {"code": code, "field": field, "message": message}
+def _reject_constant(name: str) -> None:
+    raise ValueError(f"{name} is not a valid JSON value")
 
 
-def _primary_reason(errors: list[dict]) -> str:
-    codes = {e["code"] for e in errors}
-    return next(r for r in REASON_PRIORITY if r in codes)
+def _schema_error(detail: str) -> None:
+    raise Rejection(SCHEMA_VIOLATION, detail)
 
 
-def _valid_record(partition: int, message: dict) -> dict:
-    return {
-        "partition": partition,
-        "offset": message["offset"],
-        "key": message.get("key"),
-        "timestamp": message.get("timestamp"),
-        "value": message["value"],
-    }
+def _is_int(value: Any) -> bool:
+    return isinstance(value, int) and not isinstance(value, bool)
 
 
-def _reject_record(
-    source: dict, raw: str, message: Any, reason: str, errors: list[dict]
-) -> dict:
-    offset = message.get("offset") if isinstance(message, dict) else None
-    value = message.get("value") if isinstance(message, dict) else None
-    txn_id = value.get("transaction_id") if isinstance(value, dict) else None
-    return {
-        **source,
-        "offset": offset,
-        "transaction_id": txn_id,
-        "reason": reason,
-        "errors": errors,
-        "raw": raw,
-    }
+def _is_number(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool)
+
+
+def _is_finite(value: int | float) -> bool:
+    return isinstance(value, int) or math.isfinite(value)
+
+
+def _type_name(value: Any) -> str:
+    names = {dict: "object", list: "array", str: "string", bool: "boolean"}
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, (int, float)):
+        return "number"
+    return names.get(type(value), type(value).__name__)
 
 
 def _write(fh, record: dict) -> None:

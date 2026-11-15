@@ -21,33 +21,34 @@ PYTHONPATH=src python -m txn_pipeline --input data/input --output out
 ```
 
 `run_pipeline(input_dir, output_dir)` (in `txn_pipeline.pipeline`) does the
-same and returns the metrics dict. Optional `--schema` / `--currencies`
-override the reference files. Outputs in `output_dir`:
+same and returns the metrics dict. Approved currencies are read from
+`config/approved_currencies.json` on every run. Outputs in `output_dir`, rows
+in processing order (partition number, then line):
 
-- `valid.jsonl`: accepted messages, `{partition, offset, key, timestamp, value}`.
-- `rejects.jsonl`: rejected lines with `partition`, `file`, `line_number`,
-  `offset`, `transaction_id`, primary `reason`, every violation in `errors`
-  (`code`, `field`, `message`) and the untouched `raw` line for replay.
-- `metrics.json`: line/message/valid/reject counts, `rejects_by_reason`
-  (primary reason), `violations_by_rule` (all violations), valid counts and
-  amounts per currency, and per-partition counts.
+- `valid.jsonl`: `transaction_id, customer_id, amount, currency, event_time,
+  merchant_id, source_partition, source_offset` (other input fields dropped).
+- `rejects.jsonl`: `source_partition, source_offset, reason_code,
+  reason_detail, raw` (`raw` is the original line; `source_offset` is `null`
+  when the offset cannot be read).
+- `metrics.json`: `schema_version` (`"1.0"`), `input_records`,
+  `valid_records`, `rejected_records`, `rejects_by_reason` (all five codes)
+  and `partitions` (`{"<N>": {input_records, valid_records, rejected_records}}`).
 
 ## Validation rules
 
-Partitions are read in numeric order, lines in file order. Blank lines are
-skipped (counted, not rejected). Each remaining line is checked for:
+Partition files are read in numeric order of `N`, lines in file order. Blank
+or whitespace-only lines are skipped and not counted. Each event gets exactly
+one reason: the first failing check below.
 
-| reason                     | rule                                                    |
-|----------------------------|---------------------------------------------------------|
-| `malformed_json`           | line is not valid JSON                                  |
-| `null_customer_id`         | `value.customer_id` is `null`                           |
-| `schema_violation`         | violates `schemas/transaction_event.schema.json` (wrong type, missing field, `amount <= 0`, bad `event_time`, ...) |
-| `unapproved_currency`      | `value.currency` not in `config/approved_currencies.json` (case-sensitive) |
-| `duplicate_transaction_id` | `transaction_id` already accepted earlier in the run (any partition) |
+| reason_code             | check                                                        |
+|-------------------------|--------------------------------------------------------------|
+| `MALFORMED_EVENT`       | not UTF-8, not strict JSON (`NaN`/`Infinity` included), or not a JSON object |
+| `NULL_CUSTOMER_ID`      | `value.customer_id` is `null`, empty or whitespace only      |
+| `SCHEMA_VIOLATION`      | bad envelope/value per `schemas/transaction_event.schema.json`: `offset` non-negative int, `key` string/null, `timestamp` int, required value fields present, ids non-empty strings (non-string `customer_id` included), `amount` a finite JSON number > 0 (not bool/string), `event_time` `YYYY-MM-DDTHH:MM:SS[.ffffff]Z` and a real date |
+| `INVALID_CURRENCY`      | `value.currency` not in the approved set (exact, case-sensitive) |
+| `DUPLICATE_TRANSACTION` | `transaction_id` already accepted earlier in the run (any partition) |
 
-When several rules fail, `reason` is the first in the table order. Only
-accepted events claim a transaction ID, so a rejected first copy does not
-block a later valid one. No values are coerced (e.g. `"567.34"` is rejected).
+Only accepted events reserve a `transaction_id`. Values are never coerced.
 
 ## Development
 
