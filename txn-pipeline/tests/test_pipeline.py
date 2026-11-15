@@ -143,10 +143,10 @@ def test_non_string_customer_id_is_schema_violation(tmp_path, customer_id):
     )
 
 
-def test_missing_customer_id_is_schema_violation(tmp_path):
+def test_missing_customer_id_is_null_customer_id(tmp_path):
     event = make_event()
     del event["value"]["customer_id"]
-    assert reject_reason(tmp_path, event) == SCHEMA_VIOLATION
+    assert reject_reason(tmp_path, event) == NULL_CUSTOMER_ID
 
 
 @pytest.mark.parametrize("currency", ["BTC", "usd", "Usd", " USD", "USD ", ""])
@@ -181,9 +181,14 @@ def test_out_of_range_amount_is_schema_violation(tmp_path, literal):
     assert reject_reason(tmp_path, line) == SCHEMA_VIOLATION
 
 
-def test_huge_offset_and_timestamp_do_not_raise(tmp_path):
+def test_huge_float_offset_is_malformed(tmp_path):
     line = json.dumps(make_event(offset=12345)).replace("12345", "1e400")
-    assert reject_reason(tmp_path, line) == SCHEMA_VIOLATION
+    assert reject_reason(tmp_path, line) == MALFORMED_EVENT
+
+
+def test_huge_integer_offset_is_kept(tmp_path):
+    _, valid, _ = run(tmp_path, {0: [make_event(offset=2**80)]})
+    assert valid[0]["source_offset"] == 2**80
 
 
 @pytest.mark.parametrize(
@@ -233,11 +238,6 @@ def test_good_event_time_is_accepted(tmp_path, event_time):
         lambda e: e["value"].update(transaction_id=""),
         lambda e: e["value"].update(transaction_id=5),
         lambda e: e["value"].update(merchant_id=None),
-        lambda e: e.pop("offset"),
-        lambda e: e.update(offset=-1),
-        lambda e: e.update(offset="3"),
-        lambda e: e.update(offset=1.0),
-        lambda e: e.update(offset=True),
         lambda e: e.update(key=5),
         lambda e: e.update(timestamp="now"),
         lambda e: e.pop("value"),
@@ -278,10 +278,25 @@ def test_malformed_lines_are_rejected_with_null_offset(tmp_path, line):
         assert rejects[0]["raw"] == line
 
 
-def test_unreadable_offset_is_null_in_reject(tmp_path):
-    event = make_event()
-    event["offset"] = "five"
-    _, _, rejects = run(tmp_path, {0: [event]})
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda e: e.pop("offset"),
+        lambda e: e.update(offset=None),
+        lambda e: e.update(offset=-1),
+        lambda e: e.update(offset="3"),
+        lambda e: e.update(offset="five"),
+        lambda e: e.update(offset=1.0),
+        lambda e: e.update(offset=True),
+        lambda e: e.update(offset=[0]),
+    ],
+)
+def test_bad_offset_is_malformed_with_null_offset(tmp_path, mutate):
+    event = make_event(customer_id=None, currency="BTC")
+    mutate(event)
+    _, valid, rejects = run(tmp_path, {0: [event]})
+    assert valid == []
+    assert rejects[0]["reason_code"] == MALFORMED_EVENT
     assert rejects[0]["source_offset"] is None
 
 
@@ -295,6 +310,7 @@ def test_offset_is_kept_when_readable(tmp_path):
     [
         (make_event(customer_id=None, amount="1", currency="BTC"), NULL_CUSTOMER_ID),
         (make_event(customer_id=" ", event_time="bad"), NULL_CUSTOMER_ID),
+        (make_event(customer_id=None, merchant_id=None), NULL_CUSTOMER_ID),
         (make_event(amount="1", currency="BTC"), SCHEMA_VIOLATION),
         (make_event(currency="usd"), INVALID_CURRENCY),
     ],

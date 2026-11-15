@@ -89,6 +89,8 @@ def parse_event(raw: str | bytes) -> dict:
             MALFORMED_EVENT,
             f"event must be a JSON object, got {_type_name(event)}",
         )
+    if read_offset(event) is None:
+        raise Rejection(MALFORMED_EVENT, "offset must be a non-negative integer")
     return event
 
 
@@ -99,8 +101,10 @@ def read_offset(event: Any) -> int | None:
 
 def check_customer_id(event: dict) -> None:
     value = event.get("value")
-    if not isinstance(value, dict) or "customer_id" not in value:
+    if not isinstance(value, dict):
         return
+    if "customer_id" not in value:
+        raise Rejection(NULL_CUSTOMER_ID, "customer_id is missing")
     customer_id = value["customer_id"]
     if customer_id is None:
         raise Rejection(NULL_CUSTOMER_ID, "customer_id is null")
@@ -109,10 +113,6 @@ def check_customer_id(event: dict) -> None:
 
 
 def check_schema(event: dict) -> None:
-    if "offset" not in event:
-        _schema_error("offset is required")
-    if not _is_int(event["offset"]) or event["offset"] < 0:
-        _schema_error("offset must be a non-negative integer")
     if "key" in event and not (event["key"] is None or isinstance(event["key"], str)):
         _schema_error("key must be a string or null")
     if "timestamp" in event and not _is_int(event["timestamp"]):

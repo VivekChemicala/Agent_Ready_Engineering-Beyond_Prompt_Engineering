@@ -42,9 +42,9 @@ one reason: the first failing check below.
 
 | reason_code             | check                                                        |
 |-------------------------|--------------------------------------------------------------|
-| `MALFORMED_EVENT`       | not UTF-8, not strict JSON (`NaN`/`Infinity` included), or not a JSON object |
-| `NULL_CUSTOMER_ID`      | `value.customer_id` is `null`, empty or whitespace only      |
-| `SCHEMA_VIOLATION`      | bad envelope/value per `schemas/transaction_event.schema.json`: `offset` non-negative int, `key` string/null, `timestamp` int, required value fields present, ids non-empty strings (non-string `customer_id` included), `amount` a finite JSON number > 0 (not bool/string), `event_time` `YYYY-MM-DDTHH:MM:SS[.ffffff]Z` and a real date |
+| `MALFORMED_EVENT`       | not UTF-8, not strict JSON (`NaN`/`Infinity` included), not a JSON object, or `offset` missing / not a non-negative integer |
+| `NULL_CUSTOMER_ID`      | `value.customer_id` is missing, `null`, empty or whitespace only |
+| `SCHEMA_VIOLATION`      | bad envelope/value per `schemas/transaction_event.schema.json`: `key` string/null, `timestamp` int, required value fields present, ids non-empty strings (non-string `customer_id` included), `amount` a finite JSON number > 0 (not bool/string), `event_time` `YYYY-MM-DDTHH:MM:SS[.ffffff]Z` and a real date |
 | `INVALID_CURRENCY`      | `value.currency` not in the approved set (exact, case-sensitive) |
 | `DUPLICATE_TRANSACTION` | `transaction_id` already accepted earlier in the run (any partition) |
 
