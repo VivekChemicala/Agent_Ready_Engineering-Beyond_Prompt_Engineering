@@ -115,6 +115,12 @@ def test_null_or_blank_customer_id(tmp_path, customer_id):
     ]
 
 
+def test_missing_customer_id(tmp_path):
+    event = make_event(0, amount="bad")
+    del event["value"]["customer_id"]
+    assert reject_codes(tmp_path, event) == [NULL_CUSTOMER_ID]
+
+
 @pytest.mark.parametrize("customer_id", [123, 1.5, True, [], {}])
 def test_non_string_customer_id_is_schema_violation(tmp_path, customer_id):
     assert reject_codes(tmp_path, make_event(0, customer_id=customer_id)) == [
@@ -239,14 +245,9 @@ def test_bad_event_time(tmp_path, event_time):
     [
         lambda e: e["value"].pop("event_time"),
         lambda e: e["value"].pop("transaction_id"),
-        lambda e: e["value"].pop("customer_id"),
         lambda e: e["value"].update(merchant_id=""),
         lambda e: e["value"].update(transaction_id=123),
         lambda e: e["value"].update(currency=None),
-        lambda e: e.update(offset=-1),
-        lambda e: e.update(offset="3"),
-        lambda e: e.update(offset=True),
-        lambda e: e.pop("offset"),
         lambda e: e.update(key=5),
         lambda e: e.update(timestamp="now"),
         lambda e: e.update(value="oops"),
@@ -291,12 +292,29 @@ def test_invalid_utf8_line_is_malformed(tmp_path):
     assert rejects[0]["source_offset"] is None
 
 
-@pytest.mark.parametrize("offset", ["3", None, 1.5, True])
-def test_unreadable_offset_is_null(tmp_path, offset):
-    event = make_event(0, customer_id=None)
+@pytest.mark.parametrize("offset", ["3", None, 1.5, 2.0, True, False, -1, [], {}])
+def test_bad_offset_is_malformed_with_null_offset(tmp_path, offset):
+    event = make_event(0, customer_id=None, currency="BTC")
     event["offset"] = offset
-    _, _, rejects = run(tmp_path, {0: [event]})
+    _, valid, rejects = run(tmp_path, {0: [event]})
+    assert valid == []
+    assert rejects[0]["reason_code"] == MALFORMED_EVENT
     assert rejects[0]["source_offset"] is None
+
+
+def test_missing_offset_is_malformed(tmp_path):
+    event = make_event(0, customer_id=None)
+    del event["offset"]
+    _, _, rejects = run(tmp_path, {0: [event]})
+    assert rejects[0]["reason_code"] == MALFORMED_EVENT
+    assert rejects[0]["source_offset"] is None
+
+
+def test_zero_and_huge_offsets_accepted(tmp_path):
+    _, valid, _ = run(
+        tmp_path, {0: [make_event(0, "a"), make_event(10**20, "b")]}
+    )
+    assert [v["source_offset"] for v in valid] == [0, 10**20]
 
 
 def test_precedence(tmp_path):

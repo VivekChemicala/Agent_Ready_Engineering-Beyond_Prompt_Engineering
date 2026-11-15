@@ -91,6 +91,8 @@ def parse_message(line: str) -> dict:
         raise RejectedEvent(
             MALFORMED_EVENT, f"message is a JSON {_type_name(message)}, not an object"
         )
+    if read_offset(message) is None:
+        raise RejectedEvent(MALFORMED_EVENT, "offset is not a non-negative integer")
     return message
 
 
@@ -115,8 +117,10 @@ def _is_int(value: Any) -> bool:
 
 
 def read_offset(message: Any) -> int | None:
-    if isinstance(message, dict) and _is_int(message.get("offset")):
-        return message["offset"]
+    if isinstance(message, dict):
+        offset = message.get("offset")
+        if _is_int(offset) and offset >= 0:
+            return offset
     return None
 
 
@@ -145,8 +149,10 @@ def _non_empty_string(value: Any) -> bool:
 
 def check_customer_id(message: dict) -> None:
     value = message.get("value")
-    if not isinstance(value, dict) or "customer_id" not in value:
+    if not isinstance(value, dict):
         return
+    if "customer_id" not in value:
+        raise RejectedEvent(NULL_CUSTOMER_ID, "value.customer_id is missing")
     customer_id = value["customer_id"]
     if customer_id is None:
         raise RejectedEvent(NULL_CUSTOMER_ID, "value.customer_id is null")
@@ -155,12 +161,11 @@ def check_customer_id(message: dict) -> None:
 
 
 def schema_errors(message: dict) -> list[str]:
-    """Check ``message`` against schemas/transaction_event.schema.json rules."""
+    """Check ``message`` against schemas/transaction_event.schema.json rules.
+
+    ``offset`` is checked earlier by ``parse_message`` (MALFORMED_EVENT).
+    """
     errors = []
-    if "offset" not in message:
-        errors.append("offset: required field missing")
-    elif not _is_int(message["offset"]) or message["offset"] < 0:
-        errors.append("offset: must be a non-negative integer")
     if "key" in message and not (
         message["key"] is None or isinstance(message["key"], str)
     ):

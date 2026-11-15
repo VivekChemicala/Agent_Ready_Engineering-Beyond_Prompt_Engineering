@@ -33,7 +33,7 @@ numeric order of `N`, line by line, and writes rows in that order to
 - `valid.jsonl`: `transaction_id`, `customer_id`, `amount`, `currency`,
   `event_time`, `merchant_id`, `source_partition`, `source_offset`. Other
   input fields are dropped.
-- `rejects.jsonl`: `source_partition`, `source_offset` (`null` if unreadable),
+- `rejects.jsonl`: `source_partition`, `source_offset` (`null` unless a non-negative integer),
   `reason_code`, `reason_detail`, `raw` (the original line).
 - `metrics.json`: `schema_version` (`"1.0"`), `input_records`, `valid_records`,
   `rejected_records`, `rejects_by_reason` (all five codes), and `partitions`
@@ -44,8 +44,8 @@ Each event gets one reason code. The first failing check wins:
 
 | reason_code | rule |
 | --- | --- |
-| `MALFORMED_EVENT` | not valid UTF-8/JSON, or not a JSON object |
-| `NULL_CUSTOMER_ID` | `value.customer_id` is `null`, empty or whitespace |
+| `MALFORMED_EVENT` | not valid UTF-8/JSON, not a JSON object, or `offset` missing or not a non-negative integer |
+| `NULL_CUSTOMER_ID` | `value.customer_id` is missing, `null`, empty or whitespace |
 | `SCHEMA_VIOLATION` | breaks `schemas/transaction_event.schema.json`, e.g. a missing field, a wrong type, an `amount` that is not a finite number > 0, or an `event_time` that is not a real `YYYY-MM-DDTHH:MM:SS[.ffffff]Z` |
 | `INVALID_CURRENCY` | not in `config/approved_currencies.json` (exact, case-sensitive; read on every run) |
 | `DUPLICATE_TRANSACTION` | `transaction_id` already accepted earlier in the run (any partition) |
