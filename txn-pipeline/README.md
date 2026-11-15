@@ -30,26 +30,25 @@ PYTHONPATH=src python -m txn_pipeline --input data/input --output out/run
 Optional `--currencies <file>` overrides `config/approved_currencies.json`.
 From Python: `run_pipeline(input_dir, output_dir)` returns the metrics dict.
 
-Partitions are processed in ascending partition number, lines in file order.
-Each non-blank line is checked in this order; the first failing check is the
-record's reject `reason`:
+Partitions are processed in ascending partition number `N`, lines in file
+order, and output rows follow that order. Blank (whitespace-only) lines are
+skipped and not counted. Each event gets exactly one reject reason: the first
+failing check, in this order:
 
-| reason                     | rule                                                     |
-|----------------------------|----------------------------------------------------------|
-| `malformed_json`           | line is not valid UTF-8 JSON (`NaN`/`Infinity` rejected) |
-| `schema_violation`         | message does not match `schemas/transaction_event.schema.json` (types are strict: `"12.5"` is not a number; `event_time` must be RFC 3339 with a timezone) |
-| `null_customer_id`         | `value.customer_id` is `null`                            |
-| `unapproved_currency`      | `value.currency` not in the approved set (case-sensitive) |
-| `duplicate_transaction_id` | `transaction_id` was already accepted earlier in the run (first valid occurrence wins) |
-
-Blank lines are skipped and counted in `blank_lines_skipped`.
+| reason_code             | rule |
+|-------------------------|------|
+| `MALFORMED_EVENT`       | line is not UTF-8 JSON (`NaN`/`Infinity` rejected), not an object, or `offset` is not a non-negative integer (`source_offset` is then `null`) |
+| `NULL_CUSTOMER_ID`      | `value.customer_id` is missing, `null`, empty or whitespace-only |
+| `SCHEMA_VIOLATION`      | message does not match `schemas/transaction_event.schema.json`: `value` not an object, a required field missing, non-string `customer_id`/`transaction_id`/`merchant_id`/`currency`, `amount` not a finite JSON number > 0 (bools and strings rejected), `event_time` not `YYYY-MM-DDTHH:MM:SS[.ffffff]Z` or not a real date, bad `key`/`timestamp` types |
+| `INVALID_CURRENCY`      | `value.currency` not in the approved set (exact, case-sensitive) |
+| `DUPLICATE_TRANSACTION` | `transaction_id` already accepted earlier in the run (only accepted events reserve an ID) |
 
 Outputs in `--output`:
 
-- `valid.jsonl`: accepted transactions (the message `value` plus `_source`:
-  partition, file, line, offset, key, timestamp).
-- `rejects.jsonl`: `{"reason", "errors", "source", "message"}`; malformed lines
-  carry `raw` (the original line) instead of `message`.
-- `metrics.json`: totals (`records_read`, `valid`, `rejected`,
-  `blank_lines_skipped`), `rejects_by_reason`, `per_partition` counts,
-  `partitions_processed` and the `approved_currencies` used.
+- `valid.jsonl`: `transaction_id, customer_id, amount, currency, event_time,
+  merchant_id, source_partition, source_offset` (other input fields dropped).
+- `rejects.jsonl`: `source_partition, source_offset, reason_code,
+  reason_detail, raw` (`raw` is the original line).
+- `metrics.json`: `schema_version` (`"1.0"`), `input_records`,
+  `valid_records`, `rejected_records`, `rejects_by_reason` (all five codes) and
+  `partitions` (`{"<N>": {input_records, valid_records, rejected_records}}`).

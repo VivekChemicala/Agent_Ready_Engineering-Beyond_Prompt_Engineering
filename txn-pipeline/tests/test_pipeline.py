@@ -4,17 +4,35 @@ from pathlib import Path
 import pytest
 
 from txn_pipeline.__main__ import main
-from txn_pipeline.pipeline import (
-    load_approved_currencies,
-    run_pipeline,
-    schema_errors,
-)
+from txn_pipeline.pipeline import REASON_CODES, run_pipeline
 
 SAMPLE_INPUT = Path(__file__).resolve().parents[1] / "data" / "input"
 CURRENCIES = {"USD", "EUR", "GBP", "CAD", "JPY"}
-AMOUNT_ERR = "value.amount: expected finite number > 0"
-NON_EMPTY = "expected non-empty string"
-TIME_ERR = "value.event_time: expected RFC 3339 date-time"
+VALID_KEYS = [
+    "transaction_id",
+    "customer_id",
+    "amount",
+    "currency",
+    "event_time",
+    "merchant_id",
+    "source_partition",
+    "source_offset",
+]
+REJECT_KEYS = [
+    "source_partition",
+    "source_offset",
+    "reason_code",
+    "reason_detail",
+    "raw",
+]
+METRICS_KEYS = [
+    "schema_version",
+    "input_records",
+    "valid_records",
+    "rejected_records",
+    "rejects_by_reason",
+    "partitions",
+]
 
 
 def make_message(offset=0, **overrides):
@@ -27,15 +45,22 @@ def make_message(offset=0, **overrides):
         "merchant_id": "merch-001",
     }
     value.update(overrides)
-    key = value["customer_id"]
-    return {"offset": offset, "key": key, "timestamp": 1, "value": value}
+    return {"offset": offset, "key": "cust-0001", "timestamp": 1, "value": value}
+
+
+def without(field, offset=0):
+    message = make_message(offset)
+    del message["value"][field]
+    return message
+
+
+def to_line(item):
+    return item if isinstance(item, str) else json.dumps(item)
 
 
 def write_partition(input_dir, partition, lines):
     input_dir.mkdir(parents=True, exist_ok=True)
-    text = "".join(
-        (line if isinstance(line, str) else json.dumps(line)) + "\n" for line in lines
-    )
+    text = "".join(to_line(line) + "\n" for line in lines)
     (input_dir / f"partition-{partition}.jsonl").write_text(text, encoding="utf-8")
 
 
@@ -45,6 +70,7 @@ def read_jsonl(path):
 
 def run(tmp_path, partitions):
     input_dir = tmp_path / "in"
+    input_dir.mkdir(parents=True, exist_ok=True)
     for partition, lines in partitions.items():
         write_partition(input_dir, partition, lines)
     out = tmp_path / "out"
@@ -52,157 +78,231 @@ def run(tmp_path, partitions):
     return metrics, read_jsonl(out / "valid.jsonl"), read_jsonl(out / "rejects.jsonl")
 
 
-def test_valid_event_is_accepted_with_source_metadata(tmp_path):
-    metrics, valid, rejects = run(tmp_path, {0: [make_message(3, channel="web")]})
-    assert rejects == []
-    assert len(valid) == 1
-    record = valid[0]
-    assert record["transaction_id"] == "txn-00003"
-    assert record["channel"] == "web"
-    assert record["_source"] == {
-        "partition": 0,
-        "file": "partition-0.jsonl",
-        "line": 1,
-        "offset": 3,
-        "key": "cust-0001",
-        "timestamp": 1,
-    }
-    assert metrics["valid"] == 1 and metrics["rejected"] == 0
-
-
-@pytest.mark.parametrize(
-    "message, error",
-    [
-        ({"value": make_message()["value"]}, "offset: required"),
-        ({**make_message(), "offset": -1}, "offset: expected integer >= 0"),
-        ({**make_message(), "offset": True}, "offset: expected integer >= 0"),
-        ({**make_message(), "key": 5}, "key: expected string or null"),
-        ({**make_message(), "timestamp": "1"}, "timestamp: expected integer"),
-        ({"offset": 0}, "value: required"),
-        ({"offset": 0, "value": []}, "value: expected object"),
-        ([1, 2], "message: expected object"),
-        (make_message(amount="12.50"), AMOUNT_ERR),
-        (make_message(amount=0), AMOUNT_ERR),
-        (make_message(amount=-3), AMOUNT_ERR),
-        (make_message(amount=True), AMOUNT_ERR),
-        (make_message(transaction_id=""), "value.transaction_id: " + NON_EMPTY),
-        (make_message(transaction_id=7), "value.transaction_id: " + NON_EMPTY),
-        (make_message(customer_id=""), "value.customer_id: " + NON_EMPTY),
-        (make_message(merchant_id=None), "value.merchant_id: " + NON_EMPTY),
-        (make_message(currency=None), "value.currency: expected string"),
-        (make_message(event_time="yesterday"), TIME_ERR),
-        (make_message(event_time="2026-11-01"), TIME_ERR),
-        (
-            make_message(event_time="2026-11-01T00:00:00"),
-            TIME_ERR,
-        ),
-    ],
-)
-def test_schema_violations_are_rejected(tmp_path, message, error):
-    metrics, valid, rejects = run(tmp_path, {0: [message]})
+def reject_one(tmp_path, line):
+    metrics, valid, rejects = run(tmp_path, {0: [line]})
     assert valid == []
     assert len(rejects) == 1
-    assert rejects[0]["reason"] == "schema_violation"
-    assert error in rejects[0]["errors"]
-    assert rejects[0]["message"] == message
-    assert metrics["rejects_by_reason"]["schema_violation"] == 1
+    assert list(rejects[0]) == REJECT_KEYS
+    assert rejects[0]["raw"] == to_line(line)
+    assert metrics["rejects_by_reason"][rejects[0]["reason_code"]] == 1
+    return rejects[0]
+
+
+def test_valid_row_has_exact_fields_and_drops_extras(tmp_path):
+    message = make_message(3, channel="web", amount=7)
+    _, valid, rejects = run(tmp_path, {4: [message]})
+    assert rejects == []
+    assert valid == [{
+        "transaction_id": "txn-00003",
+        "customer_id": "cust-0001",
+        "amount": 7,
+        "currency": "USD",
+        "event_time": "2026-11-01T00:00:00Z",
+        "merchant_id": "merch-001",
+        "source_partition": 4,
+        "source_offset": 3,
+    }]
+    assert list(valid[0]) == VALID_KEYS
 
 
 @pytest.mark.parametrize(
-    "field",
+    "line",
     [
-        "transaction_id",
-        "customer_id",
-        "amount",
-        "currency",
-        "event_time",
-        "merchant_id",
+        '{"offset": 1, "value": {"tran',
+        "not json",
+        "[1, 2]",
+        '"a string"',
+        "42",
+        "null",
+        '{"offset": NaN, "value": {}}',
+        '{"offset": 0, "value": {"amount": Infinity}}',
+        "1" * 5000,
+        "[" * 100000,
+        json.dumps({"value": make_message()["value"]}),
+        json.dumps({**make_message(), "offset": -1}),
+        json.dumps({**make_message(), "offset": 1.0}),
+        json.dumps({**make_message(), "offset": "1"}),
+        json.dumps({**make_message(), "offset": True}),
+        json.dumps({**make_message(), "offset": None}),
     ],
 )
-def test_missing_required_value_field_is_schema_violation(field):
-    message = make_message()
-    del message["value"][field]
-    assert schema_errors(message) == [f"value.{field}: required"]
+def test_malformed_events(tmp_path, line):
+    reject = reject_one(tmp_path, line)
+    assert reject["reason_code"] == "MALFORMED_EVENT"
+    assert reject["source_offset"] is None
+    assert reject["source_partition"] == 0
 
 
-def test_event_time_with_offset_is_accepted():
-    assert schema_errors(make_message(event_time="2026-11-01T08:00:00.123+05:30")) == []
+def test_non_utf8_line_is_malformed(tmp_path):
+    input_dir = tmp_path / "in"
+    input_dir.mkdir()
+    (input_dir / "partition-0.jsonl").write_bytes(b'{"offset": 0, "x": "\xff"}\n')
+    metrics = run_pipeline(input_dir, tmp_path / "out", approved_currencies=CURRENCIES)
+    assert metrics["rejects_by_reason"]["MALFORMED_EVENT"] == 1
 
 
-def test_null_customer_id_is_rejected(tmp_path):
-    metrics, valid, rejects = run(tmp_path, {0: [make_message(customer_id=None)]})
-    assert valid == []
-    assert rejects[0]["reason"] == "null_customer_id"
-    assert metrics["rejects_by_reason"]["null_customer_id"] == 1
+@pytest.mark.parametrize("customer_id", [None, "", "   ", "\t\n"])
+def test_null_customer_id(tmp_path, customer_id):
+    reject = reject_one(tmp_path, make_message(5, customer_id=customer_id))
+    assert reject["reason_code"] == "NULL_CUSTOMER_ID"
+    assert reject["source_offset"] == 5
 
 
-def test_null_customer_id_with_other_schema_errors_is_schema_violation(tmp_path):
-    _, _, rejects = run(tmp_path, {0: [make_message(customer_id=None, amount="1")]})
-    assert rejects[0]["reason"] == "schema_violation"
+def test_missing_customer_id_is_null_customer_id(tmp_path):
+    assert reject_one(tmp_path, without("customer_id"))["reason_code"] == (
+        "NULL_CUSTOMER_ID"
+    )
 
 
-@pytest.mark.parametrize("currency", ["XYZ", "BTC", "usd", ""])
-def test_unapproved_currency_is_rejected(tmp_path, currency):
-    metrics, valid, rejects = run(tmp_path, {0: [make_message(currency=currency)]})
-    assert valid == []
-    assert rejects[0]["reason"] == "unapproved_currency"
-    assert metrics["rejects_by_reason"]["unapproved_currency"] == 1
+def test_null_customer_id_wins_over_schema_and_currency(tmp_path):
+    line = make_message(customer_id=None, amount="1", currency="BTC")
+    assert reject_one(tmp_path, line)["reason_code"] == "NULL_CUSTOMER_ID"
 
 
-def test_duplicate_transaction_ids_rejected_within_and_across_partitions(tmp_path):
-    first = make_message(0, transaction_id="txn-dup")
+@pytest.mark.parametrize(
+    "line",
+    [
+        make_message(customer_id=123),
+        make_message(customer_id=["c"]),
+        make_message(customer_id=True),
+        make_message(amount="12.50"),
+        make_message(amount=True),
+        make_message(amount=0),
+        make_message(amount=-3.2),
+        make_message(amount=None),
+        json.dumps(make_message(amount=1.5)).replace("1.5", "1e999"),
+        make_message(transaction_id=""),
+        make_message(transaction_id=7),
+        make_message(merchant_id=None),
+        make_message(currency=None),
+        make_message(currency=1),
+        make_message(event_time="2026-11-01"),
+        make_message(event_time="2026-11-01T00:00:00"),
+        make_message(event_time="2026-11-01T00:00:00+00:00"),
+        make_message(event_time="2026-11-01T00:00:00.1234567Z"),
+        make_message(event_time="2026-11-01 00:00:00Z"),
+        make_message(event_time="2026-02-30T00:00:00Z"),
+        make_message(event_time="2026-11-01T24:00:00Z"),
+        make_message(event_time="２０２６-11-01T00:00:00Z"),
+        make_message(event_time=1793836801000),
+        {**make_message(), "key": 5},
+        {**make_message(), "timestamp": "1"},
+        {"offset": 0},
+        {"offset": 0, "value": "x"},
+        without("transaction_id"),
+        without("amount"),
+        without("currency"),
+        without("event_time"),
+        without("merchant_id"),
+    ],
+)
+def test_schema_violations(tmp_path, line):
+    reject = reject_one(tmp_path, line)
+    assert reject["reason_code"] == "SCHEMA_VIOLATION"
+    assert reject["source_offset"] == 0
+    assert reject["reason_detail"]
+
+
+def test_schema_violation_wins_over_currency(tmp_path):
+    line = make_message(amount="1", currency="BTC")
+    assert reject_one(tmp_path, line)["reason_code"] == "SCHEMA_VIOLATION"
+
+
+@pytest.mark.parametrize(
+    "event_time",
+    ["2026-11-01T23:59:59Z", "2024-02-29T00:00:00.5Z", "2026-11-01T00:00:00.123456Z"],
+)
+def test_valid_event_times(tmp_path, event_time):
+    _, valid, _ = run(tmp_path, {0: [make_message(event_time=event_time)]})
+    assert valid[0]["event_time"] == event_time
+
+
+def test_large_integer_amount_is_kept_unchanged(tmp_path):
+    _, valid, _ = run(tmp_path, {0: [make_message(amount=10**30)]})
+    assert valid[0]["amount"] == 10**30
+
+
+@pytest.mark.parametrize("currency", ["XYZ", "BTC", "usd", "USD ", ""])
+def test_invalid_currency(tmp_path, currency):
+    reject = reject_one(tmp_path, make_message(currency=currency))
+    assert reject["reason_code"] == "INVALID_CURRENCY"
+
+
+def test_duplicates_within_and_across_partitions(tmp_path):
     metrics, valid, rejects = run(
         tmp_path,
         {
-            0: [first, make_message(1, transaction_id="txn-dup", amount=99.0)],
-            1: [make_message(0, transaction_id="txn-dup")],
+            0: [
+                make_message(0, transaction_id="dup"),
+                make_message(1, transaction_id="dup", amount=99.0),
+            ],
+            1: [make_message(0, transaction_id="dup")],
         },
     )
-    assert [r["_source"]["offset"] for r in valid] == [0]
-    assert valid[0]["amount"] == 10.5
-    assert [r["reason"] for r in rejects] == ["duplicate_transaction_id"] * 2
-    assert [r["source"]["partition"] for r in rejects] == [0, 1]
-    assert metrics["rejects_by_reason"]["duplicate_transaction_id"] == 2
+    assert [(r["source_partition"], r["source_offset"]) for r in valid] == [(0, 0)]
+    assert [r["reason_code"] for r in rejects] == ["DUPLICATE_TRANSACTION"] * 2
+    assert [(r["source_partition"], r["source_offset"]) for r in rejects] == [
+        (0, 1),
+        (1, 0),
+    ]
+    assert metrics["rejects_by_reason"]["DUPLICATE_TRANSACTION"] == 2
 
 
-def test_invalid_first_occurrence_does_not_block_later_valid_event(tmp_path):
-    _, valid, rejects = run(
-        tmp_path,
-        {0: [make_message(0, transaction_id="t", customer_id=None),
-             make_message(1, transaction_id="t")]},
-    )
-    assert [r["_source"]["offset"] for r in valid] == [1]
-    assert [r["reason"] for r in rejects] == ["null_customer_id"]
-
-
-def test_partitions_processed_in_numeric_order(tmp_path):
+def test_only_accepted_events_reserve_transaction_id(tmp_path):
     _, valid, rejects = run(
         tmp_path,
         {
-            10: [make_message(0, transaction_id="t")],
-            2: [make_message(0, transaction_id="t")],
+            0: [
+                make_message(0, transaction_id="t", customer_id=None),
+                make_message(1, transaction_id="t", currency="BTC"),
+                make_message(2, transaction_id="t", amount="1"),
+                make_message(3, transaction_id="t"),
+            ]
         },
     )
-    assert valid[0]["_source"]["partition"] == 2
-    assert rejects[0]["source"]["partition"] == 10
+    assert [r["source_offset"] for r in valid] == [3]
+    assert [r["reason_code"] for r in rejects] == [
+        "NULL_CUSTOMER_ID",
+        "INVALID_CURRENCY",
+        "SCHEMA_VIOLATION",
+    ]
 
 
-def test_malformed_lines_rejected_and_blank_lines_skipped(tmp_path):
+def test_partitions_processed_in_numeric_order(tmp_path):
+    metrics, valid, rejects = run(
+        tmp_path,
+        {
+            10: [make_message(0, transaction_id="t"), "bad"],
+            2: [make_message(0, transaction_id="t"), "bad"],
+            1: ["bad"],
+        },
+    )
+    assert valid[0]["source_partition"] == 2
+    assert [r["source_partition"] for r in rejects] == [1, 2, 10, 10]
+    assert list(metrics["partitions"]) == ["1", "2", "10"]
+
+
+def test_rows_are_in_line_order(tmp_path):
+    lines = [make_message(i, currency="BTC" if i % 2 else "USD") for i in range(6)]
+    _, valid, rejects = run(tmp_path, {0: list(reversed(lines))})
+    assert [r["source_offset"] for r in valid] == [4, 2, 0]
+    assert [r["source_offset"] for r in rejects] == [5, 3, 1]
+
+
+def test_blank_lines_are_skipped_without_counting(tmp_path):
     input_dir = tmp_path / "in"
     input_dir.mkdir()
-    good = json.dumps(make_message()).encode()
-    (input_dir / "partition-0.jsonl").write_bytes(
-        b'{"offset": 1, "value": {"tran\n\n   \n\xff\xfe\n{"offset": NaN}\n' + good
-    )
+    good = json.dumps(make_message())
+    (input_dir / "partition-0.jsonl").write_text(f"\n   \n{good}\r\n\t\n")
     metrics = run_pipeline(input_dir, tmp_path / "out", approved_currencies=CURRENCIES)
-    rejects = read_jsonl(tmp_path / "out" / "rejects.jsonl")
-    assert [r["reason"] for r in rejects] == ["malformed_json"] * 3
-    assert [r["source"]["line"] for r in rejects] == [1, 4, 5]
-    assert rejects[0]["raw"] == '{"offset": 1, "value": {"tran'
-    assert "message" not in rejects[0]
-    assert metrics["blank_lines_skipped"] == 2
-    assert metrics["records_read"] == 4
-    assert metrics["valid"] == 1
+    assert metrics["input_records"] == 1
+    assert metrics["valid_records"] == 1
+    assert metrics["rejected_records"] == 0
+
+
+def test_raw_is_original_line(tmp_path):
+    line = '{"offset": 0,   "value": {"customer_id": null, "note": "é"}}'
+    assert reject_one(tmp_path, line)["raw"] == line
 
 
 def test_non_partition_files_are_ignored(tmp_path):
@@ -211,18 +311,21 @@ def test_non_partition_files_are_ignored(tmp_path):
     (input_dir / "notes.txt").write_text("not json\n")
     (input_dir / "partition-x.jsonl").write_text("not json\n")
     metrics = run_pipeline(input_dir, tmp_path / "out", approved_currencies=CURRENCIES)
-    assert metrics["partitions_processed"] == 1
-    assert metrics["records_read"] == 1
+    assert list(metrics["partitions"]) == ["0"]
+    assert metrics["input_records"] == 1
 
 
-def test_empty_input_dir_produces_empty_outputs(tmp_path):
-    (tmp_path / "in").mkdir()
-    metrics = run_pipeline(
-        tmp_path / "in", tmp_path / "out", approved_currencies=CURRENCIES
-    )
-    assert metrics["records_read"] == 0
-    assert (tmp_path / "out" / "valid.jsonl").read_text() == ""
-    assert (tmp_path / "out" / "rejects.jsonl").read_text() == ""
+def test_empty_input_dir(tmp_path):
+    metrics, valid, rejects = run(tmp_path, {})
+    assert (valid, rejects) == ([], [])
+    assert metrics == {
+        "schema_version": "1.0",
+        "input_records": 0,
+        "valid_records": 0,
+        "rejected_records": 0,
+        "rejects_by_reason": {code: 0 for code in REASON_CODES},
+        "partitions": {},
+    }
 
 
 def test_missing_input_dir_raises(tmp_path):
@@ -230,44 +333,49 @@ def test_missing_input_dir_raises(tmp_path):
         run_pipeline(tmp_path / "missing", tmp_path / "out")
 
 
-def test_metrics_file_matches_return_value_and_is_consistent(tmp_path):
+def test_sample_data(tmp_path):
     out = tmp_path / "out"
     metrics = run_pipeline(SAMPLE_INPUT, out)
     assert json.loads((out / "metrics.json").read_text()) == metrics
-    assert metrics["records_read"] == metrics["valid"] + metrics["rejected"]
-    assert sum(metrics["rejects_by_reason"].values()) == metrics["rejected"]
-    for key in ("records_read", "valid", "rejected", "blank_lines_skipped"):
-        assert sum(p[key] for p in metrics["per_partition"].values()) == metrics[key]
-    assert len(read_jsonl(out / "valid.jsonl")) == metrics["valid"]
-    assert len(read_jsonl(out / "rejects.jsonl")) == metrics["rejected"]
-
-
-def test_sample_data_expected_counts(tmp_path):
-    out = tmp_path / "out"
-    metrics = run_pipeline(SAMPLE_INPUT, out)
-    assert metrics["partitions_processed"] == 3
-    assert metrics["records_read"] == 43
-    assert metrics["blank_lines_skipped"] == 1
-    assert metrics["valid"] == 27
-    assert metrics["rejected"] == 16
-    assert metrics["rejects_by_reason"] == {
-        "malformed_json": 1,
-        "schema_violation": 6,
-        "null_customer_id": 3,
-        "unapproved_currency": 3,
-        "duplicate_transaction_id": 3,
+    assert list(metrics) == METRICS_KEYS
+    assert metrics == {
+        "schema_version": "1.0",
+        "input_records": 43,
+        "valid_records": 27,
+        "rejected_records": 16,
+        "rejects_by_reason": {
+            "MALFORMED_EVENT": 1,
+            "NULL_CUSTOMER_ID": 3,
+            "SCHEMA_VIOLATION": 6,
+            "INVALID_CURRENCY": 3,
+            "DUPLICATE_TRANSACTION": 3,
+        },
+        "partitions": {
+            "0": {"input_records": 14, "valid_records": 9, "rejected_records": 5},
+            "1": {"input_records": 15, "valid_records": 9, "rejected_records": 6},
+            "2": {"input_records": 14, "valid_records": 9, "rejected_records": 5},
+        },
     }
     valid = read_jsonl(out / "valid.jsonl")
+    rejects = read_jsonl(out / "rejects.jsonl")
+    assert len(valid) == 27 and len(rejects) == 16
+    assert all(list(r) == VALID_KEYS for r in valid)
+    assert all(list(r) == REJECT_KEYS for r in rejects)
     ids = [r["transaction_id"] for r in valid]
     assert len(ids) == len(set(ids))
-    assert all(r["customer_id"] for r in valid)
-    assert {r["currency"] for r in valid} <= load_approved_currencies()
+    order = [(r["source_partition"], r["source_offset"]) for r in valid]
+    assert order == sorted(order)
+    malformed = [r for r in rejects if r["reason_code"] == "MALFORMED_EVENT"]
+    assert malformed[0]["source_partition"] == 1
+    assert malformed[0]["source_offset"] is None
+    sample_lines = (SAMPLE_INPUT / "partition-1.jsonl").read_text().splitlines()
+    assert malformed[0]["raw"] == sample_lines[6]
 
 
 def test_rerun_is_deterministic(tmp_path):
     run_pipeline(SAMPLE_INPUT, tmp_path / "a")
     run_pipeline(SAMPLE_INPUT, tmp_path / "b")
-    for name in ("valid.jsonl", "rejects.jsonl"):
+    for name in ("valid.jsonl", "rejects.jsonl", "metrics.json"):
         first = (tmp_path / "a" / name).read_bytes()
         assert first == (tmp_path / "b" / name).read_bytes()
 
@@ -284,12 +392,12 @@ def test_cli_custom_currencies_and_missing_input(tmp_path, capsys):
     currencies = tmp_path / "currencies.json"
     currencies.write_text(json.dumps({"approved_currencies": ["USD", "BTC"]}))
     input_dir = tmp_path / "in"
-    write_partition(input_dir, 0, [make_message(0, currency="BTC"),
-                                   make_message(1, currency="EUR")])
+    write_partition(
+        input_dir, 0, [make_message(0, currency="BTC"), make_message(1, currency="EUR")]
+    )
     out = tmp_path / "out"
     args = ["--input", str(input_dir), "--output", str(out)]
-    args += ["--currencies", str(currencies)]
-    assert main(args) == 0
+    assert main(args + ["--currencies", str(currencies)]) == 0
     assert [r["currency"] for r in read_jsonl(out / "valid.jsonl")] == ["BTC"]
     capsys.readouterr()
     assert main(["--input", str(tmp_path / "nope"), "--output", str(out)]) == 2
