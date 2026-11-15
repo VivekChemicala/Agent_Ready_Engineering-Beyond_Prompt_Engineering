@@ -83,6 +83,10 @@ def mmss(s):
     return "-" if s is None else f"{s // 60}m{s % 60:02d}s"
 
 
+def median_time(values: list[int]) -> str:
+    return mmss(int(statistics.median(values))) if values else "-"
+
+
 def render(rows: dict) -> str:
     out = ["| Trial | First pass | Req | Contract | Robust | Rework | "
            "Interventions | Cycle time | Agent time | Checks run before "
@@ -112,7 +116,7 @@ def render(rows: dict) -> str:
             f"{acc}/{len(rs)} | {contract:.1f}/19 | "
             f"{sum(r['rework'] for r in rs)} | "
             f"{sum(r['interventions'] for r in rs)} | "
-            f"{mmss(int(statistics.median(r['cycle_s'] for r in rs)))} | "
+            f"{median_time([r['cycle_s'] for r in rs if r['accepted']])} | "
             f"{mmss(agent)} | "
             f"{len({r['first_fingerprint'] for r in rs})} | "
             f"{mmss(agent // acc) if acc else '-'} |")
