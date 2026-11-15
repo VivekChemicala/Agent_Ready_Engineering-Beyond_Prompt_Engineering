@@ -7,6 +7,7 @@ Prints the reviewer message to send if the delivery is not accepted.
 
 from __future__ import annotations
 
+import fcntl
 import json
 import subprocess
 import sys
@@ -42,9 +43,14 @@ def main() -> int:
     RUNS.mkdir(exist_ok=True)
     out = RUNS / f"{trial}_r{len(t['rounds'])}.json"
     out.write_text(json.dumps(result, indent=2))
-    t["rounds"].append({"commit": sha, "delivered_at": delivered_at,
-                        "accepted": result["accepted"], "score_file": out.name})
-    ledger_path.write_text(json.dumps(ledger, indent=2) + "\n")
+    with open(HERE / "trials.lock", "w") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        ledger = json.loads(ledger_path.read_text())
+        ledger["trials"][trial]["rounds"].append(
+            {"commit": sha, "delivered_at": delivered_at,
+             "accepted": result["accepted"], "score_file": out.name})
+        ledger_path.write_text(json.dumps(ledger, indent=2) + "\n")
+    t = ledger["trials"][trial]
     print(f"{trial} round {len(t['rounds']) - 1}: {summary_line(result)}")
     print(f"diff: {result['diffstat']}")
     if not result["accepted"]:
