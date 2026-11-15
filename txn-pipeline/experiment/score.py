@@ -24,12 +24,14 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 ACCEPTANCE = HERE / "acceptance"
 CATEGORIES = ("TestRequirements", "TestContract", "TestRobustness")
+EXPECTED = {"TestRequirements": 6, "TestContract": 19, "TestRobustness": 4}
 CLEAN_ENV_DROP = re.compile(r"KEY|TOKEN|SECRET|PASSWORD", re.I)
 
 
 def env(**extra) -> dict:
     e = {k: v for k, v in os.environ.items() if not CLEAN_ENV_DROP.search(k)}
     e.pop("PYTHONPATH", None)
+    e.pop("PYTEST_ADDOPTS", None)
     e.update(extra)
     return e
 
@@ -59,7 +61,8 @@ def count_tests(output: str) -> int:
 def acceptance(ws: Path, xml: Path) -> dict:
     sh([sys.executable, "-m", "pytest", str(ACCEPTANCE), "-q",
         "-p", "no:cacheprovider", f"--junitxml={xml}",
-        f"--rootdir={ACCEPTANCE}"], cwd=ws, TXN_WORKSPACE=str(ws))
+        "-o", "addopts=", f"--rootdir={ACCEPTANCE}"],
+       cwd=ws, TXN_WORKSPACE=str(ws))
     scores = {c: {"passed": 0, "total": 0, "failed": []} for c in CATEGORIES}
     if not xml.exists():
         for s in scores.values():
@@ -67,13 +70,16 @@ def acceptance(ws: Path, xml: Path) -> dict:
         return scores
     for case in ET.parse(xml).iter("testcase"):
         cat = case.get("classname", "").rsplit(".", 1)[-1]
-        ok = case.find("failure") is None and case.find("error") is None
+        ok = all(case.find(t) is None for t in ("failure", "error", "skipped"))
         targets = [cat] if cat in scores else list(CATEGORIES)
         for t in targets:
             scores[t]["total"] += 1
             scores[t]["passed"] += ok
             if not ok:
                 scores[t]["failed"].append(case.get("name"))
+    for c, s in scores.items():
+        if s["total"] != EXPECTED[c]:
+            s["failed"].append(f"<ran {s['total']} of {EXPECTED[c]} checks>")
     return scores
 
 
@@ -133,11 +139,11 @@ def score(project: Path, keep: Path | None = None) -> dict:
     result["fingerprint"] = fingerprint(ws)
     acc = result["acceptance"]
     result["requirements_pass"] = (acc["TestRequirements"]["passed"]
-                                   == acc["TestRequirements"]["total"] > 0)
-    result["contract_pass"] = acc["TestContract"]["passed"] \
-        == acc["TestContract"]["total"] > 0
-    result["robustness_pass"] = acc["TestRobustness"]["passed"] \
-        == acc["TestRobustness"]["total"] > 0
+                                   == EXPECTED["TestRequirements"])
+    result["contract_pass"] = (acc["TestContract"]["passed"]
+                               == EXPECTED["TestContract"])
+    result["robustness_pass"] = (acc["TestRobustness"]["passed"]
+                                 == EXPECTED["TestRobustness"])
     result["accepted"] = all([
         result["pytest"]["passed"], result["flake8"]["passed"],
         result["cli_smoke"]["passed"], result["requirements_pass"],
