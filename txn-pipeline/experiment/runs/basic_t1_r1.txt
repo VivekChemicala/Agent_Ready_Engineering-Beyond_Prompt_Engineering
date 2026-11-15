@@ -1,0 +1,8 @@
+basic_t1 round 1: accepted=False pytest=True(109 tests) flake8=True cli=True Requirements=6/6 Contract=16/19 Robustness=4/4 fp=7a94bae2e1d92df7
+diff:  4 files changed, 874 insertions(+), 4 deletions(-)
+----- reviewer message -----
+Review of your change found problems. Please fix them, keep pytest and flake8 green, push to the same branch, and reply with the new commit SHA.
+
+- When the offset cannot be read, source_offset must be null.
+- Blank/whitespace customer_id counts as NULL_CUSTOMER_ID.
+- One reason per event, first failing check wins: MALFORMED_EVENT > NULL_CUSTOMER_ID > SCHEMA_VIOLATION > INVALID_CURRENCY > DUPLICATE_TRANSACTION.

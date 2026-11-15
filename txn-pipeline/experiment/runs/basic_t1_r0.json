@@ -1,0 +1,62 @@
+{
+  "project": "/home/ubuntu/repos/Python/txn-pipeline/experiment/runs/worktrees/basic_t1_r0/txn-pipeline",
+  "added_requirement_files": [],
+  "pytest": {
+    "passed": true,
+    "tests": 53,
+    "tail": ".....................................................                    [100%]\n53 passed in 0.22s"
+  },
+  "flake8": {
+    "passed": true,
+    "issues": 0,
+    "tail": ""
+  },
+  "cli_smoke": {
+    "passed": true,
+    "tail": "    \"GBP\",\n    \"JPY\",\n    \"USD\"\n  ],\n  \"outputs\": {\n    \"valid\": \"valid.jsonl\",\n    \"rejects\": \"rejects.jsonl\",\n    \"metrics\": \"metrics.json\"\n  }\n}"
+  },
+  "acceptance": {
+    "TestRequirements": {
+      "passed": 6,
+      "total": 6,
+      "failed": []
+    },
+    "TestContract": {
+      "passed": 3,
+      "total": 19,
+      "failed": [
+        "test_valid_record_shape",
+        "test_reject_record_shape",
+        "test_reason_codes",
+        "test_malformed_offset_is_null",
+        "test_blank_customer_is_null_customer",
+        "test_non_string_customer_is_schema_violation",
+        "test_precedence",
+        "test_currency_is_case_sensitive",
+        "test_amount_rules",
+        "test_event_time_rules",
+        "test_rejected_event_does_not_reserve_id",
+        "test_numeric_partition_order",
+        "test_blank_lines_not_counted",
+        "test_metrics_exact",
+        "test_output_order_is_processing_order",
+        "test_currencies_come_from_config"
+      ]
+    },
+    "TestRobustness": {
+      "passed": 3,
+      "total": 4,
+      "failed": [
+        "test_hostile_lines_never_raise"
+      ]
+    }
+  },
+  "fingerprint": "4dde1580fb448780",
+  "requirements_pass": true,
+  "contract_pass": false,
+  "robustness_pass": false,
+  "accepted": false,
+  "commit": "6f8865285b63de901b3793f329cac991b5d9960e",
+  "delivered_at": 1794768730,
+  "diffstat": " 5 files changed, 763 insertions(+), 4 deletions(-)"
+}

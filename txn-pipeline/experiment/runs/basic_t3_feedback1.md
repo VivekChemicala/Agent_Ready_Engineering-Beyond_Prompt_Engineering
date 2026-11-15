@@ -1,0 +1,19 @@
+Review of your change found problems. Please fix them, keep pytest and flake8 green, push to the same branch, and reply with the new commit SHA.
+
+- valid.jsonl rows must have exactly: transaction_id, customer_id, amount, currency, event_time, merchant_id, source_partition, source_offset (extra input fields dropped, values unchanged).
+- rejects.jsonl rows must have exactly: source_partition, source_offset, reason_code, reason_detail, raw (raw = original line).
+- Use the reason codes MALFORMED_EVENT, NULL_CUSTOMER_ID, SCHEMA_VIOLATION, INVALID_CURRENCY, DUPLICATE_TRANSACTION.
+- When the offset cannot be read, source_offset must be null.
+- Blank/whitespace customer_id counts as NULL_CUSTOMER_ID.
+- A non-string customer_id is a SCHEMA_VIOLATION.
+- One reason per event, first failing check wins: MALFORMED_EVENT > NULL_CUSTOMER_ID > SCHEMA_VIOLATION > INVALID_CURRENCY > DUPLICATE_TRANSACTION.
+- Currency matching is exact and case-sensitive.
+- amount must be a JSON number (not bool/string), finite and > 0.
+- event_time must be YYYY-MM-DDTHH:MM:SS[.ffffff]Z and a real date.
+- Only accepted events reserve a transaction_id for duplicate checks.
+- Process partition files in numeric order of N.
+- Skip blank lines without counting them.
+- metrics.json must be exactly: schema_version '1.0', input_records, valid_records, rejected_records, rejects_by_reason (all five codes), partitions {'<N>': {input_records, valid_records, rejected_records}}.
+- Output rows must be in processing order (partition, then line).
+- Read approved currencies from config/approved_currencies.json (resolved from the project root) on each run; don't hard-code them.
+- Arbitrary bad lines (non-objects, NaN, huge numbers, wrong types) must be rejected without raising.

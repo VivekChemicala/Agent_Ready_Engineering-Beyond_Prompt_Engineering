@@ -1,0 +1,233 @@
+{
+  "basic_t1": {
+    "arm": "basic",
+    "first_pass": false,
+    "first": {
+      "TestRequirements": [
+        6,
+        6
+      ],
+      "TestContract": [
+        3,
+        19
+      ],
+      "TestRobustness": [
+        3,
+        4
+      ]
+    },
+    "accepted": true,
+    "rework": 2,
+    "interventions": 2,
+    "cycle_s": 208,
+    "agent_s": 163,
+    "verif_ran": [
+      true,
+      true,
+      true
+    ],
+    "verif_gates": [
+      true,
+      true,
+      true
+    ],
+    "tests": [
+      53,
+      109,
+      113
+    ],
+    "fingerprint": "7a94bae2e1d92df7",
+    "first_fingerprint": "4dde1580fb448780",
+    "commit": "76b199583dea036273ba33e85d2c99290c18de32",
+    "acus": null
+  },
+  "basic_t2": {
+    "arm": "basic",
+    "first_pass": false,
+    "first": {
+      "TestRequirements": [
+        6,
+        6
+      ],
+      "TestContract": [
+        4,
+        19
+      ],
+      "TestRobustness": [
+        3,
+        4
+      ]
+    },
+    "accepted": true,
+    "rework": 1,
+    "interventions": 1,
+    "cycle_s": 342,
+    "agent_s": 325,
+    "verif_ran": [
+      true,
+      true
+    ],
+    "verif_gates": [
+      true,
+      true
+    ],
+    "tests": [
+      47,
+      80
+    ],
+    "fingerprint": "7a94bae2e1d92df7",
+    "first_fingerprint": "5f73a1e322a2958b",
+    "commit": "1d9a0299d298b89b7c3c7657be38e7ca5baa3def",
+    "acus": null
+  },
+  "basic_t3": {
+    "arm": "basic",
+    "first_pass": false,
+    "first": {
+      "TestRequirements": [
+        6,
+        6
+      ],
+      "TestContract": [
+        3,
+        19
+      ],
+      "TestRobustness": [
+        3,
+        4
+      ]
+    },
+    "accepted": true,
+    "rework": 2,
+    "interventions": 2,
+    "cycle_s": 403,
+    "agent_s": 363,
+    "verif_ran": [
+      true,
+      true,
+      true
+    ],
+    "verif_gates": [
+      true,
+      true,
+      true
+    ],
+    "tests": [
+      35,
+      94,
+      97
+    ],
+    "fingerprint": "7a94bae2e1d92df7",
+    "first_fingerprint": "84c9f3da6d709f92",
+    "commit": "19d136264f2afa3bce869ddf32e8289c3875c8b7",
+    "acus": null
+  },
+  "skill_t1": {
+    "arm": "skill",
+    "first_pass": true,
+    "first": {
+      "TestRequirements": [
+        6,
+        6
+      ],
+      "TestContract": [
+        19,
+        19
+      ],
+      "TestRobustness": [
+        4,
+        4
+      ]
+    },
+    "accepted": true,
+    "rework": 0,
+    "interventions": 0,
+    "cycle_s": 219,
+    "agent_s": 219,
+    "verif_ran": [
+      true
+    ],
+    "verif_gates": [
+      true
+    ],
+    "tests": [
+      94
+    ],
+    "fingerprint": "7a94bae2e1d92df7",
+    "first_fingerprint": "7a94bae2e1d92df7",
+    "commit": "5ac592cf7b34e31b7036c0530a7e29532058bbe1",
+    "acus": null
+  },
+  "skill_t2": {
+    "arm": "skill",
+    "first_pass": true,
+    "first": {
+      "TestRequirements": [
+        6,
+        6
+      ],
+      "TestContract": [
+        19,
+        19
+      ],
+      "TestRobustness": [
+        4,
+        4
+      ]
+    },
+    "accepted": true,
+    "rework": 0,
+    "interventions": 0,
+    "cycle_s": 188,
+    "agent_s": 188,
+    "verif_ran": [
+      true
+    ],
+    "verif_gates": [
+      true
+    ],
+    "tests": [
+      92
+    ],
+    "fingerprint": "7a94bae2e1d92df7",
+    "first_fingerprint": "7a94bae2e1d92df7",
+    "commit": "3924ac856183d128b59ce28bc3e51f2ec986e01d",
+    "acus": null
+  },
+  "skill_t3": {
+    "arm": "skill",
+    "first_pass": true,
+    "first": {
+      "TestRequirements": [
+        6,
+        6
+      ],
+      "TestContract": [
+        19,
+        19
+      ],
+      "TestRobustness": [
+        4,
+        4
+      ]
+    },
+    "accepted": true,
+    "rework": 0,
+    "interventions": 0,
+    "cycle_s": 268,
+    "agent_s": 268,
+    "verif_ran": [
+      true
+    ],
+    "verif_gates": [
+      true
+    ],
+    "tests": [
+      95
+    ],
+    "fingerprint": "7a94bae2e1d92df7",
+    "first_fingerprint": "7a94bae2e1d92df7",
+    "commit": "3764f9747d10136753e9da77fd0a600cd1289ad9",
+    "acus": null
+  }
+}

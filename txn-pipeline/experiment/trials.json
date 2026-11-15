@@ -1,0 +1,113 @@
+{
+  "start_sha": "4e4973379ddc7689edb0d19ba4ea92bacaa19c92",
+  "devin_mode": "normal",
+  "trials": {
+    "basic_t1": {
+      "session_id": "c68ca5f3adf142d390e18366f9f53f17",
+      "created_at": 1794768647,
+      "rounds": [
+        {
+          "commit": "6f8865285b63de901b3793f329cac991b5d9960e",
+          "delivered_at": 1794768730,
+          "accepted": false,
+          "score_file": "basic_t1_r0.json",
+          "feedback_sent_at": 1794768756
+        },
+        {
+          "commit": "ec179060f1bb45e9fc7c1d377f469fe0a59817ca",
+          "delivered_at": 1794768822,
+          "accepted": false,
+          "score_file": "basic_t1_r1.json",
+          "feedback_sent_at": 1794768841
+        },
+        {
+          "commit": "76b199583dea036273ba33e85d2c99290c18de32",
+          "delivered_at": 1794768855,
+          "accepted": true,
+          "score_file": "basic_t1_r2.json"
+        }
+      ]
+    },
+    "basic_t2": {
+      "session_id": "01758c23af594652b63d03be1bf32e86",
+      "created_at": 1794768647,
+      "rounds": [
+        {
+          "commit": "f8b5a6a547ce506c120f0595bdef6a42b03668c7",
+          "delivered_at": 1794768838,
+          "accepted": false,
+          "score_file": "basic_t2_r0.json",
+          "feedback_sent_at": 1794768855
+        },
+        {
+          "commit": "1d9a0299d298b89b7c3c7657be38e7ca5baa3def",
+          "delivered_at": 1794768989,
+          "accepted": true,
+          "score_file": "basic_t2_r1.json"
+        }
+      ]
+    },
+    "basic_t3": {
+      "session_id": "001533dd095943969b6f9cdb2733c3e3",
+      "created_at": 1794768648,
+      "rounds": [
+        {
+          "commit": "3cfa62d4b6106053f866fe64e8e78ca45ef7fed9",
+          "delivered_at": 1794768802,
+          "accepted": false,
+          "score_file": "basic_t3_r0.json",
+          "feedback_sent_at": 1794768811
+        },
+        {
+          "commit": "9655674e3aae758c04a66055b595b0f4d681a94c",
+          "delivered_at": 1794768987,
+          "accepted": false,
+          "score_file": "basic_t3_r1.json",
+          "feedback_sent_at": 1794769018
+        },
+        {
+          "commit": "19d136264f2afa3bce869ddf32e8289c3875c8b7",
+          "delivered_at": 1794769051,
+          "accepted": true,
+          "score_file": "basic_t3_r2.json"
+        }
+      ]
+    },
+    "skill_t1": {
+      "session_id": "eefa3d1409214284911859a9ee16e5dd",
+      "created_at": 1794768649,
+      "rounds": [
+        {
+          "commit": "5ac592cf7b34e31b7036c0530a7e29532058bbe1",
+          "delivered_at": 1794768868,
+          "accepted": true,
+          "score_file": "skill_t1_r0.json"
+        }
+      ]
+    },
+    "skill_t2": {
+      "session_id": "5867f051a2644d978ad644f7f2a36ae4",
+      "created_at": 1794768650,
+      "rounds": [
+        {
+          "commit": "3924ac856183d128b59ce28bc3e51f2ec986e01d",
+          "delivered_at": 1794768838,
+          "accepted": true,
+          "score_file": "skill_t2_r0.json"
+        }
+      ]
+    },
+    "skill_t3": {
+      "session_id": "baf7cd9ba0ae415a8141a76a52f2f4f1",
+      "created_at": 1794768650,
+      "rounds": [
+        {
+          "commit": "3764f9747d10136753e9da77fd0a600cd1289ad9",
+          "delivered_at": 1794768918,
+          "accepted": true,
+          "score_file": "skill_t3_r0.json"
+        }
+      ]
+    }
+  }
+}
