@@ -35,8 +35,14 @@ def env(**extra) -> dict:
 
 
 def sh(cmd, cwd, timeout=600, **extra):
-    p = subprocess.run(cmd, cwd=cwd, env=env(**extra), capture_output=True,
-                       text=True, timeout=timeout)
+    try:
+        p = subprocess.run(cmd, cwd=cwd, env=env(**extra),
+                           capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        out = exc.stdout or ""
+        if isinstance(out, bytes):
+            out = out.decode(errors="replace")
+        return 124, f"{out}\nTIMEOUT after {timeout}s"
     return p.returncode, (p.stdout + p.stderr)
 
 
