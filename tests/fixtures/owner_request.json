@@ -1,0 +1,6 @@
+{
+  "schema": "metadata.dataset.owner.request.v1",
+  "payload": {
+    "owner": "team-sales"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "$id": "metadata.columns.response.v1",
+  "$comment": "Synthetic contract for a controlled experiment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "urn",
+    "columns"
+  ],
+  "properties": {
+    "urn": {
+      "type": "string",
+      "minLength": 1
+    },
+    "columns": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "name",
+          "type",
+          "tags"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "type": {
+            "type": "string",
+            "minLength": 1
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

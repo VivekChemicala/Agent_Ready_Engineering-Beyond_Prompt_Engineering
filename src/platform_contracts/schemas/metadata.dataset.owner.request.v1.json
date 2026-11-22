@@ -1,0 +1,15 @@
+{
+  "$id": "metadata.dataset.owner.request.v1",
+  "$comment": "Synthetic contract for a controlled experiment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "owner"
+  ],
+  "properties": {
+    "owner": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}
