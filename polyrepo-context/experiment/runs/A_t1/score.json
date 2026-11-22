@@ -1,0 +1,41 @@
+{
+  "repos_correct": 7,
+  "repos_total": 10,
+  "repos_missed": [
+    "lineage-service",
+    "platform-e2e",
+    "search-indexer"
+  ],
+  "repos_incorrect": [
+    "reporting-service"
+  ],
+  "repo_classification_correct": 7,
+  "edges_correct": 5,
+  "edges_total": 11,
+  "edges_missed": [
+    "entitlements-service|platform-sdk",
+    "lineage-service|metadata-graph",
+    "metadata-graph|search-indexer",
+    "platform-contracts|platform-sdk",
+    "platform-contracts|search-indexer",
+    "platform-sdk|query-gateway"
+  ],
+  "edges_incorrect": [
+    "reporting-service->metadata-graph"
+  ],
+  "contracts_correct": [
+    "C1",
+    "C2",
+    "C3",
+    "C4"
+  ],
+  "contracts_total": 5,
+  "contracts_incorrect": [
+    "POST /v1/access/decisions",
+    "POST /v1/queries"
+  ],
+  "decommissioned": true,
+  "time_s": 155,
+  "acus": null,
+  "plan": 9
+}

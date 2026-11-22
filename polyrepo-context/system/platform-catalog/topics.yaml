@@ -1,0 +1,28 @@
+# SYNTHETIC example catalog entry written for an experiment.
+ingestion.schema.discovered.v1:
+  producer: ingestion-service
+  consumers:
+    - metadata-graph
+ingestion.batch.landed.v1:
+  producer: ingestion-service
+  consumers:
+    - dq-engine
+ingestion.job.completed.v1:
+  producer: ingestion-service
+  consumers:
+    - lineage-service
+metadata.dataset.changed.v1:
+  producer: metadata-graph
+  consumers:
+    - entitlements-service
+    - lineage-service
+    - search-indexer
+dq.result.published.v1:
+  producer: dq-engine
+  consumers:
+    - metadata-graph
+    - notification-service
+gateway.access.logged.v1:
+  producer: query-gateway
+  consumers:
+    - usage-metering

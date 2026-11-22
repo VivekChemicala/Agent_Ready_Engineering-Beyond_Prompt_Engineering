@@ -1,0 +1,34 @@
+{
+  "repos_correct": 9,
+  "repos_total": 10,
+  "repos_missed": [
+    "lineage-service"
+  ],
+  "repos_incorrect": [
+    "reporting-service"
+  ],
+  "repo_classification_correct": 9,
+  "edges_correct": 9,
+  "edges_total": 11,
+  "edges_missed": [
+    "lineage-service|metadata-graph",
+    "platform-contracts|search-indexer"
+  ],
+  "edges_incorrect": [
+    "platform-e2e->platform-sdk",
+    "reporting-service->metadata-graph"
+  ],
+  "contracts_correct": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5"
+  ],
+  "contracts_total": 5,
+  "contracts_incorrect": [],
+  "decommissioned": true,
+  "time_s": 192,
+  "acus": null,
+  "plan": 15
+}

@@ -1,0 +1,30 @@
+{
+  "repos_correct": 10,
+  "repos_total": 10,
+  "repos_missed": [],
+  "repos_incorrect": [
+    "reporting-service"
+  ],
+  "repo_classification_correct": 10,
+  "edges_correct": 10,
+  "edges_total": 11,
+  "edges_missed": [
+    "platform-contracts|search-indexer"
+  ],
+  "edges_incorrect": [
+    "reporting-service->metadata-graph"
+  ],
+  "contracts_correct": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5"
+  ],
+  "contracts_total": 5,
+  "contracts_incorrect": [],
+  "decommissioned": true,
+  "time_s": 200,
+  "acus": null,
+  "plan": 15
+}

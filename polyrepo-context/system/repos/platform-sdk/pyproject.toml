@@ -1,0 +1,4 @@
+[project]
+name = "platform-sdk"
+version = "3.4.1"
+dependencies = ["platform-contracts==2.3.0", "requests>=2.31"]

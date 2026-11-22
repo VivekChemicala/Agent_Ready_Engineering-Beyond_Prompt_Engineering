@@ -1,0 +1,22 @@
+# SYNTHETIC example catalog entry written for an experiment.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: platform-sdk
+  description: Shared Python SDK: typed REST clients and event helpers.
+  annotations:
+    github.com/project-slug: example-org/platform-sdk
+spec:
+  type: library
+  lifecycle: production
+  owner: team-platform
+  system: data-platform
+  providesApis: []
+  consumesApis:
+    - metadata-graph-api
+    - entitlements-api
+  dependsOn:
+    - component:platform-contracts
+  events:
+    produces: []
+    consumes: []

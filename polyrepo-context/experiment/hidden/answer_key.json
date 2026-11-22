@@ -1,0 +1,30 @@
+{
+  "_note": "SYNTHETIC answer key for DP-1423. Kept off the trial branches until every trial was scored.",
+  "repositories": {
+    "code_change": ["platform-contracts", "ingestion-service", "metadata-graph",
+                    "platform-sdk", "entitlements-service", "query-gateway",
+                    "dq-engine", "search-indexer", "platform-e2e"],
+    "verify_only": ["lineage-service"],
+    "not_impacted": ["notification-service", "usage-metering", "reporting-service"]
+  },
+  "relevant_edges": [
+    ["ingestion-service", "metadata-graph", "ingestion.schema.discovered.v1"],
+    ["metadata-graph", "entitlements-service", "columns API / metadata.dataset.changed.v1"],
+    ["metadata-graph", "dq-engine", "GET /v1/datasets/{urn}/columns"],
+    ["metadata-graph", "search-indexer", "metadata.dataset.changed.v1 (strict)"],
+    ["metadata-graph", "lineage-service", "metadata.dataset.changed.v1 (tolerant)"],
+    ["entitlements-service", "query-gateway", "POST /v1/access/decide"],
+    ["platform-sdk", "entitlements-service", "MetadataClient"],
+    ["platform-sdk", "dq-engine", "MetadataClient"],
+    ["platform-sdk", "query-gateway", "EntitlementsClient"],
+    ["platform-contracts", "platform-sdk", "pinned contracts release"],
+    ["platform-contracts", "search-indexer", "vendored schema"]
+  ],
+  "contracts": [
+    {"id": "C1", "kind": "event", "match": "ingestion.schema.discovered"},
+    {"id": "C2", "kind": "event", "match": "metadata.dataset.changed"},
+    {"id": "C3", "kind": "http", "method": ["GET"], "path_regex": "^/v1/datasets/[^/]+/columns$"},
+    {"id": "C4", "kind": "http", "method": ["PUT", "PATCH", "POST"], "path_regex": "classif", "owner": "metadata-graph"},
+    {"id": "C5", "kind": "http", "method": ["POST"], "path_regex": "^/v1/access/decide$"}
+  ]
+}

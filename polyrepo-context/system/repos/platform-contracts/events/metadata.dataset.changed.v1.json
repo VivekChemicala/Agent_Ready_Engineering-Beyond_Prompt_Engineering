@@ -1,0 +1,10 @@
+{"title": "metadata.dataset.changed.v1", "type": "object",
+ "required": ["event_id", "occurred_at", "change_type", "dataset"],
+ "properties": {
+  "event_id": {"type": "string"}, "occurred_at": {"type": "string"},
+  "change_type": {"enum": ["CREATED", "UPDATED", "COLUMNS_CHANGED"]},
+  "dataset": {"type": "object", "required": ["urn", "name", "domain", "owner", "columns"],
+   "properties": {"urn": {"type": "string"}, "name": {"type": "string"},
+    "domain": {"type": "string"}, "owner": {"type": "string"},
+    "columns": {"type": "array", "items": {"type": "object", "required": ["name", "data_type"],
+      "properties": {"name": {"type": "string"}, "data_type": {"type": "string"}, "nullable": {"type": "boolean"}}}}}}}}
