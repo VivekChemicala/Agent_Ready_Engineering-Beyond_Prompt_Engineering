@@ -1,0 +1,6 @@
+{
+  "schema": "metadata.column.sensitivity.request.v1",
+  "payload": {
+    "sensitivity": "PII"
+  }
+}

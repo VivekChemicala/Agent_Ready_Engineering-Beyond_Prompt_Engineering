@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.4.0
+- DP-1501: add optional column `sensitivity` (`PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `PII`) to
+  `metadata.columns.response.v1` and `metadata.dataset.changed.v1`; a column without it is `INTERNAL`.
+- DP-1501: add `metadata.column.sensitivity.request.v1` for
+  `PUT /v1/datasets/{urn}/columns/{column}/sensitivity`.
+
 ## 2.3.0
 - DP-1310: add `metadata.dataset.owner.request.v1` for `PUT /v1/datasets/{urn}/owner`.
 
