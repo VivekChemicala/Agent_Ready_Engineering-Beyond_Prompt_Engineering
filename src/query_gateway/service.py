@@ -2,6 +2,8 @@
 from query_gateway.metadata_client import MetadataClient, UpstreamContractError, UpstreamError
 
 READ_PERMISSION = "dataset:read"
+PII_READ_PERMISSION = "pii:read"
+MASK = "***"
 
 
 class QueryService:
@@ -19,4 +21,13 @@ class QueryService:
         except UpstreamError:
             return {"status": 502, "error": "UPSTREAM"}
         names = [c.name for c in columns]
-        return {"status": 200, "rows": [{n: row.get(n) for n in names} for row in rows]}
+        if PII_READ_PERMISSION in permissions:
+            masked = []
+        else:
+            masked = [c.name for c in columns if c.sensitivity == "PII"]
+        masked_set = set(masked)
+        out_rows = [
+            {n: (MASK if n in masked_set and row.get(n) is not None else row.get(n)) for n in names}
+            for row in rows
+        ]
+        return {"status": 200, "rows": out_rows, "masked_columns": masked}
