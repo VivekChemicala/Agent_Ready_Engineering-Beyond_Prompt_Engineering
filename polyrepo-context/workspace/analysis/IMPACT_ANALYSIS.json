@@ -1,0 +1,156 @@
+{
+  "ticket": "DP-1423",
+  "repositories": [
+    {
+      "name": "metadata-graph",
+      "impact": "code_change",
+      "reason": "Owns the column model, graph store, metadata REST API and the metadata.dataset.changed.v1 event; must store a per-column classification, suggest it from ingested source tags, expose a steward override endpoint and include classification in column responses and change events.",
+      "evidence": [
+        "workspace/metadata-graph/README.md",
+        "workspace/metadata-graph/src/metadata_graph/model.py",
+        "workspace/metadata-graph/src/metadata_graph/api.py",
+        "workspace/metadata-graph/src/metadata_graph/consumers.py",
+        "workspace/metadata-graph/src/metadata_graph/publisher.py",
+        "workspace/metadata-graph/src/metadata_graph/graph_store.py",
+        "workspace/metadata-graph/config/settings.yaml",
+        "workspace/metadata-graph/tests/test_api.py",
+        "workspace/metadata-graph/tests/test_consumers.py"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "platform-contracts",
+      "impact": "code_change",
+      "reason": "Spec of record for the metadata-graph OpenAPI and the event schemas (metadata.dataset.changed.v1, ingestion.schema.discovered.v1), so the additive fields, the new classification endpoint and the access-decision masked_columns field must be defined here first.",
+      "evidence": [
+        "workspace/metadata-graph/src/metadata_graph/api.py",
+        "workspace/metadata-graph/src/metadata_graph/publisher.py",
+        "workspace/metadata-graph/requirements.txt"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "platform-sdk",
+      "impact": "code_change",
+      "reason": "MetadataClient is the mandated REST client for metadata-graph and the events helper wraps publish/subscribe, so it needs the classification field on column models and a set-classification method for stewards and the DQ service.",
+      "evidence": [
+        "workspace/metadata-graph/README.md",
+        "workspace/metadata-graph/requirements.txt",
+        "workspace/metadata-graph/src/metadata_graph/consumers.py",
+        "workspace/metadata-graph/src/metadata_graph/publisher.py"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "ingestion-service",
+      "impact": "code_change",
+      "reason": "Produces ingestion.schema.discovered.v1, whose column payload today carries only name/type/nullable, so it must parse source column comments/tags (e.g. 'tags: pii,email') and emit them as an optional tags field.",
+      "evidence": [
+        "workspace/metadata-graph/README.md",
+        "workspace/metadata-graph/src/metadata_graph/consumers.py",
+        "workspace/metadata-graph/config/settings.yaml"
+      ],
+      "name_source": "inferred"
+    },
+    {
+      "name": "entitlements-service",
+      "impact": "code_change",
+      "reason": "Consumes metadata.dataset.changed.v1 and makes access decisions, so it must retain column classifications and return the list of columns to mask when the requester lacks a pii:read grant.",
+      "evidence": [
+        "workspace/metadata-graph/README.md"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "reporting-service",
+      "impact": "code_change",
+      "reason": "Consumes metadata.dataset.changed.v1 and is the only known service returning data to consumers, so it must apply the masked_columns from the access decision to query/report results (and must be re-verified against the additive event fields).",
+      "evidence": [
+        "workspace/metadata-graph/README.md"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "dq-service",
+      "impact": "code_change",
+      "reason": "Publishes dq.result.published.v1 and runs data-quality checks, so it must look up column classifications (via platform-sdk MetadataClient) and apply PII-format validation rules to columns classified PII.",
+      "evidence": [
+        "workspace/metadata-graph/README.md",
+        "workspace/metadata-graph/src/metadata_graph/consumers.py",
+        "workspace/metadata-graph/config/settings.yaml"
+      ],
+      "name_source": "inferred"
+    }
+  ],
+  "considered_not_impacted": [],
+  "dependencies": [
+    {"consumer": "metadata-graph", "provider": "ingestion-service", "via": "event", "contract": "ingestion.schema.discovered.v1"},
+    {"consumer": "metadata-graph", "provider": "dq-service", "via": "event", "contract": "dq.result.published.v1"},
+    {"consumer": "entitlements-service", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "reporting-service", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "dq-service", "provider": "metadata-graph", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
+    {"consumer": "reporting-service", "provider": "entitlements-service", "via": "http", "contract": "POST /v1/access/decisions"},
+    {"consumer": "metadata-graph", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "metadata-graph", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
+    {"consumer": "platform-sdk", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
+    {"consumer": "dq-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "entitlements-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "reporting-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "ingestion-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"}
+  ],
+  "contracts": [
+    {
+      "kind": "event",
+      "name": "ingestion.schema.discovered.v1",
+      "owner": "ingestion-service",
+      "change": "modify",
+      "compatibility": "additive",
+      "description": "Add optional columns[].tags (array of lowercase strings parsed from the source column comment/tags, e.g. ['pii','email']); absent means no tags."
+    },
+    {
+      "kind": "event",
+      "name": "metadata.dataset.changed.v1",
+      "owner": "metadata-graph",
+      "change": "modify",
+      "compatibility": "additive",
+      "description": "Add optional dataset.columns[].classification (PUBLIC|INTERNAL|CONFIDENTIAL|PII) and columns[].classification_source (SUGGESTED|STEWARD); classification changes are published with the existing change_type COLUMNS_CHANGED rather than a new enum value."
+    },
+    {
+      "kind": "http",
+      "name": "GET /v1/datasets/{urn}/columns",
+      "owner": "metadata-graph",
+      "change": "modify",
+      "compatibility": "additive",
+      "description": "Each column object gains classification and classification_source fields; existing fields unchanged."
+    },
+    {
+      "kind": "http",
+      "name": "PUT /v1/datasets/{urn}/columns/{column}/classification",
+      "owner": "metadata-graph",
+      "change": "new",
+      "compatibility": "additive",
+      "description": "Steward-only endpoint to set or override a column classification (body {classification, reason?}); returns the updated column, 400 on invalid value, 404 on unknown dataset/column, 403 without steward role, and publishes metadata.dataset.changed.v1."
+    },
+    {
+      "kind": "http",
+      "name": "POST /v1/access/decisions",
+      "owner": "entitlements-service",
+      "change": "modify",
+      "compatibility": "additive",
+      "description": "Access decision response gains masked_columns (list of column names classified PII that must be masked because the requester lacks pii:read); empty list when nothing must be masked."
+    }
+  ],
+  "open_questions": [
+    "What are the exact repository names of the ingestion service and the data-quality service (assumed ingestion-service and dq-service)?",
+    "Is reporting-service the component that returns query results to data consumers, or is there a separate query gateway/engine repository that must apply masking?",
+    "What is the exact path and shape of the entitlements access-decision API (assumed POST /v1/access/decisions)?",
+    "What classification should unclassified/legacy columns default to (null vs INTERNAL), and should masking fail closed for unclassified columns?",
+    "Should CONFIDENTIAL columns also be masked for some requesters, or only PII columns lacking pii:read?",
+    "What is the tag-to-classification mapping (e.g. pii/email/phone/ssn -> PII, confidential -> CONFIDENTIAL, public -> PUBLIC, otherwise no suggestion)?",
+    "Which masking format is required (full redaction, partial e.g. a***@x.com, or hash/tokenisation), and must masked results stay type-compatible?",
+    "Do metadata.dataset.changed.v1 consumers validate change_type against a closed enum (which would make a new CLASSIFICATION_CHANGED value breaking)?",
+    "Which identity/role provides the steward permission for the override endpoint, and is an audit trail of overrides required?",
+    "Which PII-format rules does the DQ service need (email, phone, SSN, ...) and how should a PII column be mapped to a rule (by tag subtype or by classification only)?",
+    "Do dq.result.published.v1 results need a per-rule breakdown for the PII checks, which would change that event contract?"
+  ]
+}
