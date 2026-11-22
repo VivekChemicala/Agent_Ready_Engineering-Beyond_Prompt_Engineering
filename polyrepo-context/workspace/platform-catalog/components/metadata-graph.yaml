@@ -1,0 +1,24 @@
+# SYNTHETIC example catalog entry written for an experiment.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: metadata-graph
+  description: Context graph of datasets, columns, owners and quality scores.
+  annotations:
+    github.com/project-slug: example-org/metadata-graph
+spec:
+  type: service
+  lifecycle: production
+  owner: team-graph
+  system: data-platform
+  providesApis:
+    - metadata-graph-api
+  consumesApis: []
+  dependsOn:
+    - component:platform-sdk
+  events:
+    produces:
+      - metadata.dataset.changed.v1
+    consumes:
+      - ingestion.schema.discovered.v1
+      - dq.result.published.v1
