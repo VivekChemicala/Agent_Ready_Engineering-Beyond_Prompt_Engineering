@@ -1,0 +1,22 @@
+{"ticket": "DP-1423",
+ "repositories": [
+  {"name": "platform-contracts", "impact": "code_change"}, {"name": "ingestion-service", "impact": "code_change"},
+  {"name": "metadata-graph", "impact": "code_change"}, {"name": "platform-sdk", "impact": "code_change"},
+  {"name": "entitlements-service", "impact": "code_change"}, {"name": "query-gateway", "impact": "code_change"},
+  {"name": "dq-engine", "impact": "code_change"}, {"name": "search-indexer", "impact": "code_change"},
+  {"name": "platform-e2e", "impact": "code_change"}, {"name": "lineage-service", "impact": "verify_only"}],
+ "considered_not_impacted": [{"name": "notification-service"}, {"name": "usage-metering"}, {"name": "reporting-service"}],
+ "dependencies": [
+  {"consumer": "metadata-graph", "provider": "ingestion-service"}, {"consumer": "entitlements-service", "provider": "metadata-graph"},
+  {"consumer": "dq-engine", "provider": "metadata-graph"}, {"consumer": "search-indexer", "provider": "metadata-graph"},
+  {"consumer": "lineage-service", "provider": "metadata-graph"}, {"consumer": "query-gateway", "provider": "entitlements-service"},
+  {"consumer": "entitlements-service", "provider": "platform-sdk"}, {"consumer": "dq-engine", "provider": "platform-sdk"},
+  {"consumer": "query-gateway", "provider": "platform-sdk"}, {"consumer": "platform-sdk", "provider": "platform-contracts"},
+  {"consumer": "search-indexer", "provider": "platform-contracts"}],
+ "contracts": [
+  {"kind": "event", "name": "ingestion.schema.discovered.v1", "owner": "ingestion-service", "change": "modify"},
+  {"kind": "event", "name": "metadata.dataset.changed.v1", "owner": "metadata-graph", "change": "modify"},
+  {"kind": "http", "name": "GET /v1/datasets/{urn}/columns", "owner": "metadata-graph", "change": "modify"},
+  {"kind": "http", "name": "PUT /v1/datasets/{urn}/columns/{column}/classification", "owner": "metadata-graph", "change": "new"},
+  {"kind": "http", "name": "POST /v1/access/decide", "owner": "entitlements-service", "change": "modify"}],
+ "open_questions": []}

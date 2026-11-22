@@ -1,0 +1,179 @@
+{
+  "note": "SYNTHETIC. 'from' depends on 'to'.",
+  "edges": [
+    {
+      "from": "ingestion-service",
+      "to": "platform-sdk",
+      "via": "library",
+      "ref": "platform-sdk"
+    },
+    {
+      "from": "metadata-graph",
+      "to": "ingestion-service",
+      "via": "event",
+      "ref": "ingestion.schema.discovered.v1"
+    },
+    {
+      "from": "metadata-graph",
+      "to": "dq-engine",
+      "via": "event",
+      "ref": "dq.result.published.v1"
+    },
+    {
+      "from": "metadata-graph",
+      "to": "platform-sdk",
+      "via": "library",
+      "ref": "platform-sdk"
+    },
+    {
+      "from": "entitlements-service",
+      "to": "metadata-graph",
+      "via": "event",
+      "ref": "metadata.dataset.changed.v1"
+    },
+    {
+      "from": "entitlements-service",
+      "to": "metadata-graph",
+      "via": "http",
+      "ref": "metadata-graph-api"
+    },
+    {
+      "from": "entitlements-service",
+      "to": "platform-sdk",
+      "via": "library",
+      "ref": "platform-sdk"
+    },
+    {
+      "from": "query-gateway",
+      "to": "entitlements-service",
+      "via": "http",
+      "ref": "entitlements-api"
+    },
+    {
+      "from": "query-gateway",
+      "to": "platform-sdk",
+      "via": "library",
+      "ref": "platform-sdk"
+    },
+    {
+      "from": "dq-engine",
+      "to": "ingestion-service",
+      "via": "event",
+      "ref": "ingestion.batch.landed.v1"
+    },
+    {
+      "from": "dq-engine",
+      "to": "metadata-graph",
+      "via": "http",
+      "ref": "metadata-graph-api"
+    },
+    {
+      "from": "dq-engine",
+      "to": "platform-sdk",
+      "via": "library",
+      "ref": "platform-sdk"
+    },
+    {
+      "from": "search-indexer",
+      "to": "metadata-graph",
+      "via": "event",
+      "ref": "metadata.dataset.changed.v1"
+    },
+    {
+      "from": "search-indexer",
+      "to": "platform-contracts",
+      "via": "library",
+      "ref": "platform-contracts"
+    },
+    {
+      "from": "lineage-service",
+      "to": "ingestion-service",
+      "via": "event",
+      "ref": "ingestion.job.completed.v1"
+    },
+    {
+      "from": "lineage-service",
+      "to": "metadata-graph",
+      "via": "event",
+      "ref": "metadata.dataset.changed.v1"
+    },
+    {
+      "from": "lineage-service",
+      "to": "platform-sdk",
+      "via": "library",
+      "ref": "platform-sdk"
+    },
+    {
+      "from": "notification-service",
+      "to": "dq-engine",
+      "via": "event",
+      "ref": "dq.result.published.v1"
+    },
+    {
+      "from": "notification-service",
+      "to": "metadata-graph",
+      "via": "http",
+      "ref": "metadata-graph-api"
+    },
+    {
+      "from": "notification-service",
+      "to": "platform-sdk",
+      "via": "library",
+      "ref": "platform-sdk"
+    },
+    {
+      "from": "usage-metering",
+      "to": "query-gateway",
+      "via": "event",
+      "ref": "gateway.access.logged.v1"
+    },
+    {
+      "from": "platform-sdk",
+      "to": "metadata-graph",
+      "via": "http",
+      "ref": "metadata-graph-api"
+    },
+    {
+      "from": "platform-sdk",
+      "to": "entitlements-service",
+      "via": "http",
+      "ref": "entitlements-api"
+    },
+    {
+      "from": "platform-sdk",
+      "to": "platform-contracts",
+      "via": "library",
+      "ref": "platform-contracts"
+    },
+    {
+      "from": "platform-e2e",
+      "to": "ingestion-service",
+      "via": "tests",
+      "ref": "ingestion-service"
+    },
+    {
+      "from": "platform-e2e",
+      "to": "metadata-graph",
+      "via": "tests",
+      "ref": "metadata-graph"
+    },
+    {
+      "from": "platform-e2e",
+      "to": "entitlements-service",
+      "via": "tests",
+      "ref": "entitlements-service"
+    },
+    {
+      "from": "platform-e2e",
+      "to": "query-gateway",
+      "via": "tests",
+      "ref": "query-gateway"
+    },
+    {
+      "from": "platform-e2e",
+      "to": "dq-engine",
+      "via": "tests",
+      "ref": "dq-engine"
+    }
+  ]
+}

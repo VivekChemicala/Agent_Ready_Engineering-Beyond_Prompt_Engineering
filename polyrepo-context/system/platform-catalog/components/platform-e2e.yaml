@@ -1,0 +1,24 @@
+# SYNTHETIC example catalog entry written for an experiment.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: platform-e2e
+  description: "Cross-service end-to-end tests run in the integration environment."
+  annotations:
+    github.com/project-slug: example-org/platform-e2e
+spec:
+  type: test-suite
+  lifecycle: production
+  owner: team-platform
+  system: data-platform
+  providesApis: []
+  consumesApis: []
+  dependsOn:
+    - component:ingestion-service
+    - component:metadata-graph
+    - component:entitlements-service
+    - component:query-gateway
+    - component:dq-engine
+  events:
+    produces: []
+    consumes: []

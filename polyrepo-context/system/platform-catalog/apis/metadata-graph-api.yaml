@@ -1,0 +1,16 @@
+# SYNTHETIC example catalog entry written for an experiment.
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: metadata-graph-api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: team-graph
+  providedBy: component:metadata-graph
+  definition: platform-contracts/openapi/metadata-graph.yaml
+  consumedBy:
+    - component:entitlements-service
+    - component:dq-engine
+    - component:notification-service
+    - component:platform-sdk

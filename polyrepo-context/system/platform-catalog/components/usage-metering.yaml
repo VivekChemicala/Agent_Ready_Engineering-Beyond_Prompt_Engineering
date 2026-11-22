@@ -1,0 +1,20 @@
+# SYNTHETIC example catalog entry written for an experiment.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: usage-metering
+  description: "Aggregates query access logs for chargeback."
+  annotations:
+    github.com/project-slug: example-org/usage-metering
+spec:
+  type: service
+  lifecycle: production
+  owner: team-platform
+  system: data-platform
+  providesApis: []
+  consumesApis: []
+  dependsOn: []
+  events:
+    produces: []
+    consumes:
+      - gateway.access.logged.v1

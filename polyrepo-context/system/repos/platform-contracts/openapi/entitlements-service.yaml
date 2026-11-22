@@ -1,0 +1,17 @@
+openapi: 3.0.3
+info: {title: entitlements-api, version: 1.2.0}
+paths:
+  /v1/access/decide:
+    post:
+      requestBody:
+        content: {application/json: {schema: {type: object, required: [principal, dataset_urn, action], properties: {principal: {type: string}, dataset_urn: {type: string}, action: {type: string, enum: [read, write]}}}}}
+      responses:
+        "200": {content: {application/json: {schema: {$ref: "#/components/schemas/Decision"}}}}
+  /v1/principals/{principal_id}/grants:
+    get:
+      responses: {"200": {description: grants held by the principal}}
+components:
+  schemas:
+    Decision:
+      type: object
+      properties: {allow: {type: boolean}, reason: {type: string}, policy_id: {type: string, nullable: true}}

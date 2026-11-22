@@ -1,0 +1,26 @@
+{
+  "repos_correct": 10,
+  "repos_total": 10,
+  "repos_missed": [],
+  "repos_incorrect": [
+    "notification-service"
+  ],
+  "repo_classification_correct": 10,
+  "edges_correct": 11,
+  "edges_total": 11,
+  "edges_missed": [],
+  "edges_incorrect": [],
+  "contracts_correct": [
+    "C1",
+    "C2",
+    "C3",
+    "C4",
+    "C5"
+  ],
+  "contracts_total": 5,
+  "contracts_incorrect": [],
+  "decommissioned": false,
+  "time_s": 216,
+  "acus": null,
+  "plan": 16
+}

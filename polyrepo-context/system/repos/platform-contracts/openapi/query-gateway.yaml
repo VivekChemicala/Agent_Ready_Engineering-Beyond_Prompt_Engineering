@@ -1,0 +1,10 @@
+openapi: 3.0.3
+info: {title: query-api, version: 2.0.0}
+paths:
+  /v1/query:
+    post:
+      requestBody:
+        content: {application/json: {schema: {type: object, properties: {principal: {type: string}, dataset_urn: {type: string}, sql: {type: string}}}}}
+      responses:
+        "200": {content: {application/json: {schema: {type: object, properties: {rows: {type: array, items: {type: object}}}}}}}
+        "403": {description: forbidden}

@@ -1,0 +1,134 @@
+{
+  "P01": {
+    "P1": 2,
+    "P2": 2,
+    "P3": 2,
+    "P4": 2,
+    "P5": 2,
+    "P6": 2,
+    "P7": 2,
+    "P8": 1,
+    "notes": "Strong plan with search-indexer gated before emission, SDK bumps and full flags, but it plans a verify-only work item and rollout gate for the decommissioned reporting-service."
+  },
+  "P02": {
+    "P1": 2,
+    "P2": 2,
+    "P3": 2,
+    "P4": 2,
+    "P5": 2,
+    "P6": 2,
+    "P7": 2,
+    "P8": 2,
+    "notes": "Complete and correct: explicit waves, search-indexer re-vendored before the event flag, SDK drop hazard handled, decide/enforce split, per-consumer contract tests plus platform-e2e suite, flagged shadow rollout."
+  },
+  "P03": {
+    "P1": 1,
+    "P2": 2,
+    "P3": 1,
+    "P4": 2,
+    "P5": 1,
+    "P6": 2,
+    "P7": 2,
+    "P8": 2,
+    "notes": "Correct services and decide/enforce split, but search-indexer is only verify-only with a generic strictness risk and the SDK drop-unknown-fields hazard is not recognised."
+  },
+  "P04": {
+    "P1": 1,
+    "P2": 2,
+    "P3": 0,
+    "P4": 1,
+    "P5": 1,
+    "P6": 1,
+    "P7": 2,
+    "P8": 1,
+    "notes": "Puts masking enforcement in decommissioned reporting-service, misses query-gateway, search-indexer and platform-e2e, and treats SDK as tolerant rather than field-dropping."
+  },
+  "P05": {
+    "P1": 2,
+    "P2": 2,
+    "P3": 1,
+    "P4": 2,
+    "P5": 1,
+    "P6": 2,
+    "P7": 2,
+    "P8": 2,
+    "notes": "Good breakdown with consumers upgraded before publish and correct decide/enforce split, but search-indexer strictness is conditional and SDK field dropping is not identified as the reason for bumps."
+  },
+  "P06": {
+    "P1": 2,
+    "P2": 2,
+    "P3": 2,
+    "P4": 2,
+    "P5": 2,
+    "P6": 2,
+    "P7": 2,
+    "P8": 1,
+    "notes": "Correct ordering, strict search-indexer fix, SDK drop hazard and decide/enforce split, but adds a reporting-service readiness check as a gating work item."
+  },
+  "P07": {
+    "P1": 2,
+    "P2": 2,
+    "P3": 1,
+    "P4": 2,
+    "P5": 1,
+    "P6": 2,
+    "P7": 2,
+    "P8": 2,
+    "notes": "Solid plan with consumer verification before the event flag and good testing, but search-indexer is verify-only with a conditional fix and SDK field dropping is not recognised."
+  },
+  "P08": {
+    "P1": 1,
+    "P2": 2,
+    "P3": 0,
+    "P4": 1,
+    "P5": 1,
+    "P6": 1,
+    "P7": 2,
+    "P8": 1,
+    "notes": "Inferred query-service/data-quality-service, verify-only reporting-service, no search-indexer or platform-e2e, no owning teams, and SDK assumed tolerant."
+  },
+  "P09": {
+    "P1": 2,
+    "P2": 2,
+    "P3": 2,
+    "P4": 2,
+    "P5": 2,
+    "P6": 2,
+    "P7": 2,
+    "P8": 2,
+    "notes": "Complete and correct: search-indexer before WI-4b, ADR-004 SDK bumps, decide/enforce with fail-closed, platform-e2e int suite with DQ, flags, backfill and rollback."
+  },
+  "P10": {
+    "P1": 1,
+    "P2": 2,
+    "P3": 0,
+    "P4": 1,
+    "P5": 1,
+    "P6": 1,
+    "P7": 2,
+    "P8": 1,
+    "notes": "Misses search-indexer and query-gateway (uses inferred query-service), keeps reporting-service as a consumer to verify, no owning teams, and e2e is generic staging rather than platform-e2e."
+  },
+  "P11": {
+    "P1": 2,
+    "P2": 2,
+    "P3": 2,
+    "P4": 2,
+    "P5": 2,
+    "P6": 2,
+    "P7": 2,
+    "P8": 1,
+    "notes": "Very strong on strict consumer, SDK drop hazard, enforcement and testing, but plans a reporting-service owner check as a gate before the event flag."
+  },
+  "P12": {
+    "P1": 2,
+    "P2": 2,
+    "P3": 2,
+    "P4": 2,
+    "P5": 2,
+    "P6": 2,
+    "P7": 2,
+    "P8": 2,
+    "notes": "Complete and correct: playbook ordering with search-indexer first, ADR-004/007/009 respected, per-consumer contract tests and platform-e2e suite, flagged staged enforcement with safe intermediate states."
+  }
+}

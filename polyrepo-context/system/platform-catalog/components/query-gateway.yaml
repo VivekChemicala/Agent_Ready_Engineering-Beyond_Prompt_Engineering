@@ -1,0 +1,23 @@
+# SYNTHETIC example catalog entry written for an experiment.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: query-gateway
+  description: "Serves query results to data consumers."
+  annotations:
+    github.com/project-slug: example-org/query-gateway
+spec:
+  type: service
+  lifecycle: production
+  owner: team-serving
+  system: data-platform
+  providesApis:
+    - query-api
+  consumesApis:
+    - entitlements-api
+  dependsOn:
+    - component:platform-sdk
+  events:
+    produces:
+      - gateway.access.logged.v1
+    consumes: []

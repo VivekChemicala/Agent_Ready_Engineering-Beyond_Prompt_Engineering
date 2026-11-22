@@ -1,0 +1,22 @@
+# SYNTHETIC example catalog entry written for an experiment.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: notification-service
+  description: "Emails dataset owners about failed quality checks."
+  annotations:
+    github.com/project-slug: example-org/notification-service
+spec:
+  type: service
+  lifecycle: production
+  owner: team-platform
+  system: data-platform
+  providesApis: []
+  consumesApis:
+    - metadata-graph-api
+  dependsOn:
+    - component:platform-sdk
+  events:
+    produces: []
+    consumes:
+      - dq.result.published.v1

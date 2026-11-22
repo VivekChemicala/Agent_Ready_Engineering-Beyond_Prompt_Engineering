@@ -1,0 +1,6 @@
+{"title": "dq.result.published.v1", "type": "object",
+ "required": ["event_id", "dataset_urn", "batch_id", "score", "results"],
+ "properties": {"event_id": {"type": "string"}, "dataset_urn": {"type": "string"},
+  "batch_id": {"type": "string"}, "score": {"type": "number"},
+  "results": {"type": "array", "items": {"type": "object",
+    "properties": {"column": {"type": "string"}, "rule": {"type": "string"}, "passed": {"type": "boolean"}}}}}}

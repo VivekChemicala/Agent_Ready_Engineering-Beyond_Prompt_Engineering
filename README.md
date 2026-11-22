@@ -40,6 +40,24 @@ chose the model ID in its own API calls. Experiment 2 ran inside Devin, which
 did not report the underlying model, so its results should not be attributed
 to Claude or any other specific model.
 
+### Experiment 3: `polyrepo-context/`
+
+Can an agent plan a cross-repo Jira story in a polyrepo? A synthetic 13-repo
+data platform and one ticket that touches 10 repos. Four arms, 3 Devin
+(`normal` mode) trials each: one repo only; + service catalog; + contracts and
+architecture docs; all code side by side with no docs. Scored by a hidden
+answer key and a blind plan reviewer. See
+[`polyrepo-context/experiment/RESULTS.md`](polyrepo-context/experiment/RESULTS.md)
+and the industry-practice notes in
+[`polyrepo-context/INDUSTRY_PRACTICE.md`](polyrepo-context/INDUSTRY_PRACTICE.md).
+
+| Arm | Repos found (of 10) | Planned work for a decommissioned repo | Plan score (of 16) |
+|---|---|---|---|
+| One repo + README | 6.7 | 3/3 | 9.0 |
+| + catalog and dependency graph | 10.0 | 0/3 | 13.7 |
+| + contracts and architecture docs | 10.0 | 0/3 | 16.0 |
+| All code side by side, no docs | 9.7 | 3/3 | 15.0 |
+
 ## Results
 
 | Metric | Exp. 1 basic | Exp. 1 harness | Exp. 2 basic | Exp. 2 skill |

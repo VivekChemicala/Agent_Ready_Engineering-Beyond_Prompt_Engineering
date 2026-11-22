@@ -1,0 +1,4 @@
+{"title": "ingestion.batch.landed.v1", "type": "object",
+ "required": ["event_id", "dataset_urn", "batch_id", "path", "row_count"],
+ "properties": {"event_id": {"type": "string"}, "dataset_urn": {"type": "string"},
+  "batch_id": {"type": "string"}, "path": {"type": "string"}, "row_count": {"type": "integer"}}}
