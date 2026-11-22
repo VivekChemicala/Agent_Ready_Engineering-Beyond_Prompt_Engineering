@@ -1,0 +1,12 @@
+# SYNTHETIC example catalog entry written for an experiment.
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: query-api
+spec:
+  type: openapi
+  lifecycle: production
+  owner: team-serving
+  providedBy: component:query-gateway
+  definition: platform-contracts/openapi/query-gateway.yaml
+  consumedBy: []

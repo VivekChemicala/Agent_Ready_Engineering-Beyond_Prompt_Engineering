@@ -1,0 +1,26 @@
+openapi: 3.0.3
+info: {title: metadata-graph-api, version: 1.4.0}
+paths:
+  /v1/datasets/{urn}:
+    get:
+      responses:
+        "200": {content: {application/json: {schema: {$ref: "#/components/schemas/Dataset"}}}}
+  /v1/datasets/{urn}/columns:
+    get:
+      responses:
+        "200": {content: {application/json: {schema: {$ref: "#/components/schemas/ColumnList"}}}}
+  /v1/datasets/{urn}/owner:
+    put:
+      requestBody: {content: {application/json: {schema: {type: object, properties: {owner: {type: string}}}}}}
+      responses: {"200": {description: updated}}
+components:
+  schemas:
+    Dataset:
+      type: object
+      properties: {urn: {type: string}, name: {type: string}, domain: {type: string}, owner: {type: string}, quality_score: {type: number, nullable: true}, updated_at: {type: string}}
+    Column:
+      type: object
+      properties: {name: {type: string}, data_type: {type: string}, nullable: {type: boolean}, description: {type: string, nullable: true}}
+    ColumnList:
+      type: object
+      properties: {urn: {type: string}, columns: {type: array, items: {$ref: "#/components/schemas/Column"}}}

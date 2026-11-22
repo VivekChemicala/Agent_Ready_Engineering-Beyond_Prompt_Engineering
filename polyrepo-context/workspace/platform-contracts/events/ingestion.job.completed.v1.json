@@ -1,0 +1,4 @@
+{"title": "ingestion.job.completed.v1", "type": "object",
+ "required": ["event_id", "job_id", "source", "target_urn"],
+ "properties": {"event_id": {"type": "string"}, "job_id": {"type": "string"},
+  "source": {"type": "string"}, "target_urn": {"type": "string"}}}

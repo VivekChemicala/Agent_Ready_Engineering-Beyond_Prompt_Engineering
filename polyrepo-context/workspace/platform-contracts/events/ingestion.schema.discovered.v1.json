@@ -1,0 +1,9 @@
+{"title": "ingestion.schema.discovered.v1", "type": "object",
+ "required": ["event_id", "source_system", "dataset_urn", "dataset_name", "domain", "discovered_at", "columns"],
+ "properties": {
+  "event_id": {"type": "string"}, "source_system": {"type": "string"},
+  "dataset_urn": {"type": "string"}, "dataset_name": {"type": "string"},
+  "domain": {"type": "string"}, "owner": {"type": "string"},
+  "discovered_at": {"type": "string"},
+  "columns": {"type": "array", "items": {"type": "object", "required": ["name", "type"],
+    "properties": {"name": {"type": "string"}, "type": {"type": "string"}, "nullable": {"type": "boolean"}}}}}}

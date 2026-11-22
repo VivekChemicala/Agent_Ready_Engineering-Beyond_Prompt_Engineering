@@ -1,0 +1,21 @@
+# SYNTHETIC example catalog entry written for an experiment.
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: search-indexer
+  description: Indexes dataset metadata for catalog search.
+  annotations:
+    github.com/project-slug: example-org/search-indexer
+spec:
+  type: service
+  lifecycle: production
+  owner: team-discovery
+  system: data-platform
+  providesApis: []
+  consumesApis: []
+  dependsOn:
+    - component:platform-contracts
+  events:
+    produces: []
+    consumes:
+      - metadata.dataset.changed.v1
