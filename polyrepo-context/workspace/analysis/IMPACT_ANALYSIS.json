@@ -1,0 +1,258 @@
+{
+  "ticket": "DP-1423",
+  "repositories": [
+    {
+      "name": "platform-contracts",
+      "impact": "code_change",
+      "reason": "Source of truth for every changed schema: column tags on ingestion.schema.discovered.v1, classification on metadata.dataset.changed.v1 and the metadata-graph Column schema, a new steward classification endpoint, masked_columns on the entitlements Decision and query response, and a classification selector on DQ rule bindings (minor release 2.3.0 -> 2.4.0).",
+      "evidence": [
+        "workspace/platform-contracts/README.md",
+        "workspace/platform-contracts/VERSION",
+        "workspace/platform-contracts/events/ingestion.schema.discovered.v1.json",
+        "workspace/platform-contracts/events/metadata.dataset.changed.v1.json",
+        "workspace/platform-contracts/openapi/metadata-graph.yaml",
+        "workspace/platform-contracts/openapi/entitlements-service.yaml",
+        "workspace/platform-contracts/openapi/query-gateway.yaml",
+        "workspace/platform-contracts/openapi/dq-engine.yaml",
+        "workspace/architecture-docs/integration/change-playbook.md",
+        "workspace/architecture-docs/adr/ADR-009-event-evolution.md"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "platform-sdk",
+      "impact": "code_change",
+      "reason": "Typed SDK models drop undeclared fields (ADR-004), so MetadataClient's column model needs classification fields, EntitlementsClient's Decision needs masked_columns, a steward set-classification method is needed, and publish validation must pin contracts 2.4.0.",
+      "evidence": [
+        "workspace/architecture-docs/adr/ADR-004-typed-sdk-models.md",
+        "workspace/architecture-docs/integration/consumer-registry.md",
+        "workspace/architecture-docs/overview.md",
+        "workspace/platform-catalog/components/platform-sdk.yaml",
+        "workspace/metadata-graph/requirements.txt"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "ingestion-service",
+      "impact": "code_change",
+      "reason": "Postgres connectors already read column comments with tags such as 'tags: pii,email' but do not propagate them; they must parse them and emit an optional columns[].tags on ingestion.schema.discovered.v1 (AC1).",
+      "evidence": [
+        "workspace/architecture-docs/flows/ingest-to-graph.md",
+        "workspace/platform-contracts/events/ingestion.schema.discovered.v1.json",
+        "workspace/platform-catalog/components/ingestion-service.yaml",
+        "workspace/platform-catalog/topics.yaml"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "metadata-graph",
+      "impact": "code_change",
+      "reason": "Owns the column model: must derive a suggested classification from ingested tags, store the effective classification per column with steward-override precedence, expose it on GET columns plus a new steward PUT endpoint, and include it in metadata.dataset.changed.v1 (AC1, AC2).",
+      "evidence": [
+        "workspace/metadata-graph/src/metadata_graph/model.py",
+        "workspace/metadata-graph/src/metadata_graph/consumers.py",
+        "workspace/metadata-graph/src/metadata_graph/api.py",
+        "workspace/metadata-graph/src/metadata_graph/publisher.py",
+        "workspace/metadata-graph/src/metadata_graph/graph_store.py",
+        "workspace/metadata-graph/requirements.txt",
+        "workspace/metadata-graph/README.md",
+        "workspace/platform-catalog/components/metadata-graph.yaml"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "search-indexer",
+      "impact": "code_change",
+      "reason": "Strict consumer of metadata.dataset.changed.v1 with a vendored contracts 2.1.0 schema (additionalProperties: false); it would dead-letter every event carrying classification, so it must vendor 2.4.0 and deploy before metadata-graph emits the new fields.",
+      "evidence": [
+        "workspace/architecture-docs/integration/consumer-registry.md",
+        "workspace/architecture-docs/adr/ADR-009-event-evolution.md",
+        "workspace/platform-catalog/components/search-indexer.yaml",
+        "workspace/platform-catalog/topics.yaml"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "entitlements-service",
+      "impact": "code_change",
+      "reason": "Only place access decisions are computed (ADR-007): must load column classifications from metadata-graph, check the requester's pii:read grant, and return masked_columns in POST /v1/access/decide (AC3).",
+      "evidence": [
+        "workspace/architecture-docs/adr/ADR-007-enforcement-at-gateway.md",
+        "workspace/architecture-docs/flows/access-decision.md",
+        "workspace/platform-contracts/openapi/entitlements-service.yaml",
+        "workspace/platform-catalog/components/entitlements-service.yaml",
+        "workspace/platform-catalog/apis/entitlements-api.yaml"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "query-gateway",
+      "impact": "code_change",
+      "reason": "Single enforcement point for data returned to consumers (ADR-007): must read masked_columns from the decision and mask those columns in POST /v1/query results (AC4).",
+      "evidence": [
+        "workspace/architecture-docs/adr/ADR-007-enforcement-at-gateway.md",
+        "workspace/architecture-docs/flows/access-decision.md",
+        "workspace/platform-contracts/openapi/query-gateway.yaml",
+        "workspace/platform-catalog/components/query-gateway.yaml"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "dq-engine",
+      "impact": "code_change",
+      "reason": "Picks rules per column from bindings by data type only; must read column classification via MetadataClient.get_columns and bind PII-format validation rules to PII columns (AC5).",
+      "evidence": [
+        "workspace/architecture-docs/flows/data-quality.md",
+        "workspace/platform-contracts/openapi/dq-engine.yaml",
+        "workspace/platform-catalog/components/dq-engine.yaml",
+        "workspace/platform-catalog/apis/dq-api.yaml"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "platform-e2e",
+      "impact": "code_change",
+      "reason": "Cross-service behaviour is new (tag -> classification -> masked decision -> masked query result, and PII DQ rules), so a new end-to-end suite must be added and run in int per the change playbook.",
+      "evidence": [
+        "workspace/platform-catalog/components/platform-e2e.yaml",
+        "workspace/architecture-docs/integration/change-playbook.md",
+        "workspace/architecture-docs/overview.md"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "lineage-service",
+      "impact": "verify_only",
+      "reason": "Tolerant consumer of metadata.dataset.changed.v1 (reads urn and name only); re-run its contract tests against the 2.4.0 payload to confirm the new column fields are ignored.",
+      "evidence": [
+        "workspace/architecture-docs/integration/consumer-registry.md",
+        "workspace/platform-catalog/components/lineage-service.yaml",
+        "workspace/platform-catalog/topics.yaml"
+      ],
+      "name_source": "observed"
+    },
+    {
+      "name": "notification-service",
+      "impact": "verify_only",
+      "reason": "Consumes dq.result.published.v1 (whose results will now include PII rule outcomes and may lower scores) and metadata-graph-api via the SDK; re-verify its contract tests and alert thresholds, no code change expected.",
+      "evidence": [
+        "workspace/architecture-docs/integration/consumer-registry.md",
+        "workspace/architecture-docs/flows/data-quality.md",
+        "workspace/platform-catalog/components/notification-service.yaml"
+      ],
+      "name_source": "observed"
+    }
+  ],
+  "considered_not_impacted": [
+    {
+      "name": "usage-metering",
+      "reason": "Consumes only gateway.access.logged.v1, which this plan leaves unchanged (adding masking info to it is an open question)."
+    },
+    {
+      "name": "reporting-service",
+      "reason": "Decommissioned and archived in 2025; the metadata-graph README still lists it as a consumer of metadata.dataset.changed.v1, but that listing is out of date."
+    },
+    {
+      "name": "platform-catalog",
+      "reason": "No new repository-to-repository integration edges are introduced (all calls and topics used already exist in the catalog), so no code or test change; re-check entities when the PRs are reviewed."
+    },
+    {
+      "name": "architecture-docs",
+      "reason": "Documentation only, with no runtime code or tests; the access-decision, data-quality, ingest-to-graph flows and the consumer registry should be refreshed as a doc follow-up."
+    }
+  ],
+  "dependencies": [
+    {"consumer": "platform-sdk", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
+    {"consumer": "search-indexer", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
+    {"consumer": "metadata-graph", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
+    {"consumer": "ingestion-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "metadata-graph", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "entitlements-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "query-gateway", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "dq-engine", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "platform-sdk", "provider": "metadata-graph", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
+    {"consumer": "platform-sdk", "provider": "metadata-graph", "via": "http", "contract": "PUT /v1/datasets/{urn}/columns/{column_name}/classification"},
+    {"consumer": "platform-sdk", "provider": "entitlements-service", "via": "http", "contract": "POST /v1/access/decide"},
+    {"consumer": "metadata-graph", "provider": "ingestion-service", "via": "event", "contract": "ingestion.schema.discovered.v1"},
+    {"consumer": "search-indexer", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "entitlements-service", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "lineage-service", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "entitlements-service", "provider": "metadata-graph", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
+    {"consumer": "dq-engine", "provider": "metadata-graph", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
+    {"consumer": "query-gateway", "provider": "entitlements-service", "via": "http", "contract": "POST /v1/access/decide"},
+    {"consumer": "notification-service", "provider": "dq-engine", "via": "event", "contract": "dq.result.published.v1"},
+    {"consumer": "metadata-graph", "provider": "dq-engine", "via": "event", "contract": "dq.result.published.v1"}
+  ],
+  "contracts": [
+    {
+      "kind": "event",
+      "name": "ingestion.schema.discovered.v1",
+      "owner": "ingestion-service",
+      "change": "modify",
+      "compatibility": "additive",
+      "description": "Add optional columns[].tags (array of lower-case strings parsed from the source column comment, e.g. [\"pii\",\"email\"]); stays on .v1 per ADR-009; the only consumer (metadata-graph) is tolerant."
+    },
+    {
+      "kind": "event",
+      "name": "metadata.dataset.changed.v1",
+      "owner": "metadata-graph",
+      "change": "modify",
+      "compatibility": "additive",
+      "description": "Add optional dataset.columns[].classification (enum PUBLIC|INTERNAL|CONFIDENTIAL|PII, nullable), classification_source (SOURCE_TAGS|STEWARD, nullable) and tags; change_type enum unchanged (steward overrides publish COLUMNS_CHANGED). Additive per ADR-009 but rejected by the strict search-indexer until it vendors 2.4.0, so search-indexer must ship first."
+    },
+    {
+      "kind": "http",
+      "name": "GET /v1/datasets/{urn}/columns",
+      "owner": "metadata-graph",
+      "change": "modify",
+      "compatibility": "additive",
+      "description": "Column schema gains optional classification, classification_source and tags (same semantics as the event); metadata-graph-api 1.4.0 -> 1.5.0."
+    },
+    {
+      "kind": "http",
+      "name": "PUT /v1/datasets/{urn}/columns/{column_name}/classification",
+      "owner": "metadata-graph",
+      "change": "new",
+      "compatibility": "additive",
+      "description": "New steward endpoint: body {classification: PUBLIC|INTERNAL|CONFIDENTIAL|PII|null, reason?: string}; a value sets a STEWARD override that later ingestion never overwrites, null clears it back to the tag-derived suggestion; returns the updated Column, 404 for unknown dataset/column, 400 for invalid enum; publishes metadata.dataset.changed.v1 (COLUMNS_CHANGED)."
+    },
+    {
+      "kind": "http",
+      "name": "POST /v1/access/decide",
+      "owner": "entitlements-service",
+      "change": "modify",
+      "compatibility": "additive",
+      "description": "Decision gains optional masked_columns (array of column names, default []), listing columns classified PII when the principal holds no pii:read grant for the dataset; request body unchanged; entitlements-api 1.2.0 -> 1.3.0."
+    },
+    {
+      "kind": "http",
+      "name": "POST /v1/query",
+      "owner": "query-gateway",
+      "change": "modify",
+      "compatibility": "additive",
+      "description": "Response rows keep the same keys, but values of masked columns are replaced (strings -> fixed token, other types -> null), and the response gains optional masked_columns listing them; gated by a feature flag; query-api 2.0.0 -> 2.1.0."
+    },
+    {
+      "kind": "http",
+      "name": "POST /v1/rules",
+      "owner": "dq-engine",
+      "change": "modify",
+      "compatibility": "additive",
+      "description": "Rule bindings gain an optional classification selector (and optional tag selector, e.g. email) next to the data-type selector, so PII-format rules bind to PII columns; GET /v1/rules returns the new optional fields; existing bindings are unchanged."
+    }
+  ],
+  "open_questions": [
+    "Tag-to-classification mapping: assumed pii -> PII, confidential -> CONFIDENTIAL, internal -> INTERNAL, public -> PUBLIC, highest sensitivity wins, no recognised tag -> null (unclassified). Does data governance own a different or configurable mapping?",
+    "Unclassified columns (all existing data before re-ingestion or steward review) are assumed to be not masked, which keeps today's behaviour. Should they instead default to INTERNAL, and is a backfill (forced re-discovery) required before masking is switched on?",
+    "Scope of the pii:read grant: global, per domain or per dataset? Who issues it, and is it new grant data in entitlements-service or does it already exist?",
+    "Should only PII be masked, or should CONFIDENTIAL also be masked for some principals? The ticket only defines PII masking.",
+    "Who is a steward, and how is PUT .../classification authorised? Today metadata-graph's PUT owner has no visible auth. Options: an ingress/gateway role, or a classification:write grant checked against entitlements-service, which would add a new metadata-graph -> entitlements-service dependency.",
+    "Masked value format: the assumption is a fixed string token for string columns and null for other types, plus masked_columns in the response. Do consumers with non-nullable typed schemas need a different format, such as format-preserving masking or hashing?",
+    "Derived expressions: query-gateway masks by output column name, so SELECT email AS e or upper(email) can bypass masking. Is SQL column-lineage resolution available, and should unresolvable queries over masked columns be rejected (403) or have every derived column masked?",
+    "Fail mode: if entitlements-service cannot load column classifications, should the decision deny (fail closed) or allow and mask all columns? Assumed: fail closed, the same as today when dataset metadata is unavailable.",
+    "Which PII-format rules exist (email, phone, national-id...), and should they be chosen by source tag? dq-engine needs the tag subtype (e.g. email), which is why tags are exposed on columns.",
+    "Should gateway.access.logged.v1 record masked_columns for audit? That would be an additive change read by usage-metering (tolerant), and it is left out of scope here.",
+    "Should search-indexer index classification (e.g. allow searching for PII columns), or only accept it in its schema? This plan only requires accepting it.",
+    "Version numbers (contracts 2.4.0, platform-sdk 3.5.0, metadata-graph-api 1.5.0, entitlements-api 1.3.0, query-api 2.1.0) are inferred from the current versions and semver rules, not confirmed."
+  ]
+}
