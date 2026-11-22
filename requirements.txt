@@ -1,1 +1,1 @@
-platform-contracts==2.3.0
+platform-contracts==2.4.0
