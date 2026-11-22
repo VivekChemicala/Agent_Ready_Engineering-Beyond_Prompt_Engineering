@@ -1,6 +1,7 @@
 # Live run results
 
-Model `anthropic:claude-sonnet-4-6`, temperature 0, same `harness/task.md` for both
+Model `claude-sonnet-4-6`, called directly through the Anthropic Messages API by
+`harness/llm.py` (not through Devin), temperature 0, same `harness/task.md` for both
 arms. 3 trials total: run 1 (`--trials 1`), then run 2 (`--trials 2`). Each arm was
 scored afterwards with the same gates and the held-out `experiment/acceptance` suite.
 
@@ -27,6 +28,8 @@ scored afterwards with the same gates and the held-out `experiment/acceptance` s
   second attempt passed. That trial cost about 3x the tokens of the others.
 - Temperature 0 was not fully deterministic: identical prompts gave different
   basic-arm contract scores (4/10 vs 7/10) and different harness iteration counts.
+- All records are synthetic (`data/synthetic_producers.json`, `example.com`
+  emails, random NPNs).
 - Small sample (3 trials). It is enough to show where the difference comes from,
   not to measure effect size.
 

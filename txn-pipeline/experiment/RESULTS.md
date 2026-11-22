@@ -1,5 +1,9 @@
 # Does a domain-conventions skill improve first-pass acceptance?
 
+All data in this experiment is synthetic. The underlying model was not
+exposed by Devin, so these results describe Devin in `normal` mode and should
+not be attributed to a specific model (for example, Claude).
+
 Task: build a synthetic Kafka-style transaction ingestion and validation pipeline
 (JSONL partitions in, `valid.jsonl` / `rejects.jsonl` / `metrics.json` out).
 
@@ -9,6 +13,7 @@ Task: build a synthetic Kafka-style transaction ingestion and validation pipelin
 |---|---|---|
 | Prompt | `task.md` only | `task.md` + `skill/SKILL.md` |
 | Agent | Devin session, `normal` mode | Devin session, `normal` mode |
+| Model | not exposed by the platform | same (not exposed) |
 | Starting commit | `4e49733` (`exp/txn-pipeline-start`) | same |
 | Agent writes its own tests | yes | yes |
 | Hidden acceptance suite | `acceptance/` (6 requirement, 19 contract, 4 robustness), never visible to agents | same |
