@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: notification-service
-  description: Emails dataset owners about failed quality checks.
+  description: "Emails dataset owners about failed quality checks."
   annotations:
     github.com/project-slug: example-org/notification-service
 spec:

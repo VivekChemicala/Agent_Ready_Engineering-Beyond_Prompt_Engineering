@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: lineage-service
-  description: Builds dataset lineage from ingestion jobs.
+  description: "Builds dataset lineage from ingestion jobs."
   annotations:
     github.com/project-slug: example-org/lineage-service
 spec:

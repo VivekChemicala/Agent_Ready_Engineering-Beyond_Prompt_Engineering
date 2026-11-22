@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: query-gateway
-  description: Serves query results to data consumers.
+  description: "Serves query results to data consumers."
   annotations:
     github.com/project-slug: example-org/query-gateway
 spec:

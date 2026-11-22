@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: ingestion-service
-  description: Source connectors; discovers source schemas and lands batches.
+  description: "Source connectors; discovers source schemas and lands batches."
   annotations:
     github.com/project-slug: example-org/ingestion-service
 spec:

@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: platform-sdk
-  description: Shared Python SDK: typed REST clients and event helpers.
+  description: "Shared Python SDK: typed REST clients and event helpers."
   annotations:
     github.com/project-slug: example-org/platform-sdk
 spec:

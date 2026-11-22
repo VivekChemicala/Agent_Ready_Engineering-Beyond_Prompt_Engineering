@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: usage-metering
-  description: Aggregates query access logs for chargeback.
+  description: "Aggregates query access logs for chargeback."
   annotations:
     github.com/project-slug: example-org/usage-metering
 spec:

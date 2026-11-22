@@ -103,6 +103,10 @@ Per-trial numbers, including missed and wrong repos, are in
   there), which all 12 trials listed. This changed only the "wrong edges"
   column. A second fix corrected an indentation bug in contract matching; it
   did not change any score.
+- After the trials, catalog descriptions were quoted so every entry parses as
+  YAML. The trial start branches have the earlier version, where
+  `platform-sdk.yaml` did not parse as YAML. Agents read it as text, and its
+  content is unchanged.
 
 ## Limitations
 

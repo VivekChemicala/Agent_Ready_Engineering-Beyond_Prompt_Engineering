@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: search-indexer
-  description: Indexes dataset metadata for catalog search.
+  description: "Indexes dataset metadata for catalog search."
   annotations:
     github.com/project-slug: example-org/search-indexer
 spec:

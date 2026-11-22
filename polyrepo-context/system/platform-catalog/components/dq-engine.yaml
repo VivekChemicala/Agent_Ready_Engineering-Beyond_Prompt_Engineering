@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: dq-engine
-  description: Runs data-quality rules on landed batches.
+  description: "Runs data-quality rules on landed batches."
   annotations:
     github.com/project-slug: example-org/dq-engine
 spec:

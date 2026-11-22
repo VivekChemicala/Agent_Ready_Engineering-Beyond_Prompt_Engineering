@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: metadata-graph
-  description: Context graph of datasets, columns, owners and quality scores.
+  description: "Context graph of datasets, columns, owners and quality scores."
   annotations:
     github.com/project-slug: example-org/metadata-graph
 spec:

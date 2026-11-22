@@ -3,7 +3,7 @@ apiVersion: backstage.io/v1alpha1
 kind: Component
 metadata:
   name: platform-e2e
-  description: Cross-service end-to-end tests run in the integration environment.
+  description: "Cross-service end-to-end tests run in the integration environment."
   annotations:
     github.com/project-slug: example-org/platform-e2e
 spec:

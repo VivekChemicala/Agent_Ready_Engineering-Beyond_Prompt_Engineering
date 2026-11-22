@@ -26,7 +26,7 @@ def yaml_list(items: list[str], indent: int) -> str:
 def component_yaml(name: str, c: dict) -> str:
     kind = "Component"
     s = HEADER + f"apiVersion: backstage.io/v1alpha1\nkind: {kind}\nmetadata:\n"
-    s += f"  name: {name}\n  description: {c['description']}\n"
+    s += f"  name: {name}\n  description: {json.dumps(c['description'])}\n"
     s += f"  annotations:\n    github.com/project-slug: example-org/{name}\n"
     s += f"spec:\n  type: {c['type']}\n  lifecycle: {c['lifecycle']}\n"
     s += f"  owner: {c['owner']}\n  system: data-platform\n"
