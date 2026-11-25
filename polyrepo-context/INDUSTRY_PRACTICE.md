@@ -1,8 +1,8 @@
 # Monorepo vs polyrepo for AI-assisted delivery: industry practice
 
 Notes that go with experiment 3 (`experiment/`). They are written for teams
-that build one product from several modules (ingestion, metadata/context graph,
-entitlements, data quality, ...), with each module spread over several repos,
+that build one product from several modules (ingestion, metadata management,
+entitlements, transformation, ...), with each module spread over several repos,
 and that are moving to small AI-PODs that use coding agents.
 
 > This summarises public practice and our own synthetic experiment. It does not

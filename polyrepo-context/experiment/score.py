@@ -19,10 +19,10 @@ KEY = json.loads((HERE / "hidden" / "answer_key.json").read_text())
 
 ALIASES = [  # (regex on normalised name, canonical repo)
     (r"ingest", "ingestion-service"),
-    (r"metadata(graph)?$|contextgraph|^metadatagraph", "metadata-graph"),
+    (r"metadata(service|graph|store)?$|contextgraph", "metadata-service"),
     (r"entitlement|accesscontrol|authz|policy", "entitlements-service"),
-    (r"gateway|queryservice|queryapi|serving|query", "query-gateway"),
-    (r"^dq|dataquality|quality", "dq-engine"),
+    (r"consumption|gateway|queryservice|queryapi|serving|query", "consumption-gateway"),
+    (r"transform|^transformation|datatransformation|quality", "transformation-service"),
     (r"search", "search-indexer"),
     (r"lineage", "lineage-service"),
     (r"notif", "notification-service"),

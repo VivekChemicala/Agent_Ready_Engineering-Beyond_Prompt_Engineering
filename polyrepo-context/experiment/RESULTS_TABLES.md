@@ -3,7 +3,7 @@
 | Trial | Repos found (of 10) | Missed repos | Wrong repos | Decommissioned repo planned | Change/verify class correct (of 10) | Edges found (of 11) | Wrong edges | Contracts found (of 5) | Wrong contracts | Plan score (of 16) | Time to push | ACUs |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | A_t1 | 7 | lineage-service, platform-e2e, search-indexer | reporting-service | yes | 7 | 5 | 1 | 4 | 2 | 9 | 2m35s | n/a |
-| A_t2 | 6 | lineage-service, platform-e2e, query-gateway, search-indexer | reporting-service | yes | 6 | 6 | 3 | 4 | 1 | 9 | 2m07s | n/a |
+| A_t2 | 6 | consumption-gateway, lineage-service, platform-e2e, search-indexer | reporting-service | yes | 6 | 6 | 3 | 4 | 1 | 9 | 2m07s | n/a |
 | A_t3 | 7 | lineage-service, platform-e2e, search-indexer | reporting-service | yes | 7 | 5 | 2 | 4 | 2 | 9 | 2m11s | n/a |
 | B_t1 | 10 | - | notification-service, platform-catalog | no | 9 | 11 | 0 | 4 | 2 | 14 | 2m46s | n/a |
 | B_t2 | 10 | - | notification-service | no | 9 | 11 | 0 | 4 | 2 | 13 | 2m48s | n/a |

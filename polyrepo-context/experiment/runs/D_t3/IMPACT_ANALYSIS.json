@@ -4,15 +4,15 @@
     {
       "name": "platform-contracts",
       "impact": "code_change",
-      "reason": "Source of truth for every changed shape: column classification/tags in ingestion.schema.discovered.v1 and metadata.dataset.changed.v1, the metadata-graph column API and new classification endpoint, masked_columns on the entitlements Decision and on the query response; released as minor 2.4.0.",
+      "reason": "Source of truth for every changed shape: column classification/tags in ingestion.schema.discovered.v1 and metadata.dataset.changed.v1, the metadata-service column API and new classification endpoint, masked_columns on the entitlements Decision and on the query response; released as minor 2.4.0.",
       "evidence": [
         "workspace/platform-contracts/README.md",
         "workspace/platform-contracts/VERSION",
         "workspace/platform-contracts/events/ingestion.schema.discovered.v1.json",
         "workspace/platform-contracts/events/metadata.dataset.changed.v1.json",
-        "workspace/platform-contracts/openapi/metadata-graph.yaml",
+        "workspace/platform-contracts/openapi/metadata-service.yaml",
         "workspace/platform-contracts/openapi/entitlements-service.yaml",
-        "workspace/platform-contracts/openapi/query-gateway.yaml"
+        "workspace/platform-contracts/openapi/consumption-gateway.yaml"
       ],
       "name_source": "observed"
     },
@@ -30,19 +30,19 @@
       "name_source": "observed"
     },
     {
-      "name": "metadata-graph",
+      "name": "metadata-service",
       "impact": "code_change",
       "reason": "Owning service: store classification/source/tags per column, suggest classification from ingested tags, keep steward overrides across re-discovery, add the steward override endpoint, and return classification in GET columns and in metadata.dataset.changed.v1.",
       "evidence": [
-        "workspace/metadata-graph/README.md",
-        "workspace/metadata-graph/config/settings.yaml",
-        "workspace/metadata-graph/requirements.txt",
-        "workspace/metadata-graph/src/metadata_graph/model.py",
-        "workspace/metadata-graph/src/metadata_graph/consumers.py",
-        "workspace/metadata-graph/src/metadata_graph/api.py",
-        "workspace/metadata-graph/src/metadata_graph/publisher.py",
-        "workspace/metadata-graph/tests/test_api.py",
-        "workspace/metadata-graph/tests/test_consumers.py"
+        "workspace/metadata-service/README.md",
+        "workspace/metadata-service/config/settings.yaml",
+        "workspace/metadata-service/requirements.txt",
+        "workspace/metadata-service/src/metadata_service/model.py",
+        "workspace/metadata-service/src/metadata_service/consumers.py",
+        "workspace/metadata-service/src/metadata_service/api.py",
+        "workspace/metadata-service/src/metadata_service/publisher.py",
+        "workspace/metadata-service/tests/test_api.py",
+        "workspace/metadata-service/tests/test_consumers.py"
       ],
       "name_source": "observed"
     },
@@ -62,7 +62,7 @@
     {
       "name": "entitlements-service",
       "impact": "code_change",
-      "reason": "Access decisions must return masked_columns (columns classified PII when the principal lacks a pii:read grant), which needs column classifications from metadata-graph and column-aware cache invalidation.",
+      "reason": "Access decisions must return masked_columns (columns classified PII when the principal lacks a pii:read grant), which needs column classifications from metadata-service and column-aware cache invalidation.",
       "evidence": [
         "workspace/entitlements-service/README.md",
         "workspace/entitlements-service/src/entitlements/policies.py",
@@ -74,29 +74,29 @@
       "name_source": "observed"
     },
     {
-      "name": "query-gateway",
+      "name": "consumption-gateway",
       "impact": "code_change",
       "reason": "Entitlements only decides and enforcement happens in the caller, so the gateway must mask the masked_columns in returned rows (behind a rollout flag) and upgrade to platform-sdk 3.5.0 so Decision keeps masked_columns.",
       "evidence": [
-        "workspace/query-gateway/README.md",
-        "workspace/query-gateway/src/gateway/query.py",
-        "workspace/query-gateway/tests/test_query.py",
-        "workspace/query-gateway/requirements.txt",
-        "workspace/platform-contracts/openapi/query-gateway.yaml"
+        "workspace/consumption-gateway/README.md",
+        "workspace/consumption-gateway/src/gateway/query.py",
+        "workspace/consumption-gateway/tests/test_query.py",
+        "workspace/consumption-gateway/requirements.txt",
+        "workspace/platform-contracts/openapi/consumption-gateway.yaml"
       ],
       "name_source": "observed"
     },
     {
-      "name": "dq-engine",
+      "name": "transformation-service",
       "impact": "code_change",
       "reason": "Rules are currently bound only by data_type; PII-format validation rules must be added and bound to columns whose classification is PII (read via platform-sdk 3.5.0 get_columns).",
       "evidence": [
-        "workspace/dq-engine/README.md",
-        "workspace/dq-engine/src/dq/runner.py",
-        "workspace/dq-engine/src/dq/rules/__init__.py",
-        "workspace/dq-engine/src/dq/rules/basic.py",
-        "workspace/dq-engine/tests/test_rules.py",
-        "workspace/dq-engine/requirements.txt"
+        "workspace/transformation-service/README.md",
+        "workspace/transformation-service/src/transformation/runner.py",
+        "workspace/transformation-service/src/transformation/rules/__init__.py",
+        "workspace/transformation-service/src/transformation/rules/basic.py",
+        "workspace/transformation-service/tests/test_rules.py",
+        "workspace/transformation-service/requirements.txt"
       ],
       "name_source": "observed"
     },
@@ -115,12 +115,12 @@
     {
       "name": "platform-e2e",
       "impact": "code_change",
-      "reason": "Cross-service suites must be extended (tags to classification, steward override, masked query results, PII DQ rules) and existing suites re-run to prove no breaking change.",
+      "reason": "Cross-service suites must be extended (tags to classification, steward override, masked query results, PII transformation rules) and existing suites re-run to prove no breaking change.",
       "evidence": [
         "workspace/platform-e2e/README.md",
-        "workspace/platform-e2e/tests/test_ingest_to_graph.py",
+        "workspace/platform-e2e/tests/test_ingest_to_metadata.py",
         "workspace/platform-e2e/tests/test_access_flow.py",
-        "workspace/platform-e2e/tests/test_dq_flow.py"
+        "workspace/platform-e2e/tests/test_transformation_flow.py"
       ],
       "name_source": "observed"
     },
@@ -137,9 +137,9 @@
     {
       "name": "reporting-service",
       "impact": "verify_only",
-      "reason": "Listed by metadata-graph as a consumer of metadata.dataset.changed.v1 but its repository is not in the workspace, so its tolerance of the new column fields must be confirmed with its owners.",
+      "reason": "Listed by metadata-service as a consumer of metadata.dataset.changed.v1 but its repository is not in the workspace, so its tolerance of the new column fields must be confirmed with its owners.",
       "evidence": [
-        "workspace/metadata-graph/README.md"
+        "workspace/metadata-service/README.md"
       ],
       "name_source": "inferred"
     }
@@ -147,33 +147,33 @@
   "considered_not_impacted": [
     {
       "name": "notification-service",
-      "reason": "Uses only dataset_urn and score from dq.result.published.v1 (unchanged schema) and Dataset.owner from get_dataset (unchanged); PII rules may lower scores and trigger more owner emails, which is intended behaviour."
+      "reason": "Uses only dataset_urn and score from transformation.result.published.v1 (unchanged schema) and Dataset.owner from get_dataset (unchanged); PII rules may lower scores and trigger more owner emails, which is intended behaviour."
     },
     {
       "name": "usage-metering",
-      "reason": "Consumes gateway.access.logged.v1 (principal, dataset_urn, row_count), which this plan does not change; masking does not change row counts."
+      "reason": "Consumes consumption.access.logged.v1 (principal, dataset_urn, row_count), which this plan does not change; masking does not change row counts."
     }
   ],
   "dependencies": [
     {"consumer": "platform-sdk", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts (pinned ==2.3.0, bump to 2.4.0)"},
-    {"consumer": "metadata-graph", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts (directly pinned ==2.3.0, bump to 2.4.0)"},
-    {"consumer": "metadata-graph", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk (events)"},
+    {"consumer": "metadata-service", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts (directly pinned ==2.3.0, bump to 2.4.0)"},
+    {"consumer": "metadata-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk (events)"},
     {"consumer": "ingestion-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk (events)"},
     {"consumer": "entitlements-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk (MetadataClient, events)"},
-    {"consumer": "query-gateway", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk (EntitlementsClient, events)"},
-    {"consumer": "dq-engine", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk (MetadataClient, events)"},
+    {"consumer": "consumption-gateway", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk (EntitlementsClient, events)"},
+    {"consumer": "transformation-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk (MetadataClient, events)"},
     {"consumer": "lineage-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk (events)"},
-    {"consumer": "metadata-graph", "provider": "ingestion-service", "via": "event", "contract": "ingestion.schema.discovered.v1"},
-    {"consumer": "metadata-graph", "provider": "dq-engine", "via": "event", "contract": "dq.result.published.v1"},
-    {"consumer": "dq-engine", "provider": "ingestion-service", "via": "event", "contract": "ingestion.batch.landed.v1"},
-    {"consumer": "dq-engine", "provider": "metadata-graph", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
-    {"consumer": "entitlements-service", "provider": "metadata-graph", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
-    {"consumer": "entitlements-service", "provider": "metadata-graph", "via": "http", "contract": "GET /v1/datasets/{urn}"},
-    {"consumer": "entitlements-service", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
-    {"consumer": "query-gateway", "provider": "entitlements-service", "via": "http", "contract": "POST /v1/access/decide"},
-    {"consumer": "search-indexer", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
-    {"consumer": "lineage-service", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
-    {"consumer": "reporting-service", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"}
+    {"consumer": "metadata-service", "provider": "ingestion-service", "via": "event", "contract": "ingestion.schema.discovered.v1"},
+    {"consumer": "metadata-service", "provider": "transformation-service", "via": "event", "contract": "transformation.result.published.v1"},
+    {"consumer": "transformation-service", "provider": "ingestion-service", "via": "event", "contract": "ingestion.batch.landed.v1"},
+    {"consumer": "transformation-service", "provider": "metadata-service", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
+    {"consumer": "entitlements-service", "provider": "metadata-service", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
+    {"consumer": "entitlements-service", "provider": "metadata-service", "via": "http", "contract": "GET /v1/datasets/{urn}"},
+    {"consumer": "entitlements-service", "provider": "metadata-service", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "consumption-gateway", "provider": "entitlements-service", "via": "http", "contract": "POST /v1/access/decide"},
+    {"consumer": "search-indexer", "provider": "metadata-service", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "lineage-service", "provider": "metadata-service", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "reporting-service", "provider": "metadata-service", "via": "event", "contract": "metadata.dataset.changed.v1"}
   ],
   "contracts": [
     {
@@ -187,7 +187,7 @@
     {
       "kind": "event",
       "name": "metadata.dataset.changed.v1",
-      "owner": "metadata-graph",
+      "owner": "metadata-service",
       "change": "modify",
       "compatibility": "additive",
       "description": "Add optional, nullable columns[].classification (PUBLIC|INTERNAL|CONFIDENTIAL|PII), columns[].classification_source (SUGGESTED|STEWARD) and columns[].tags; classification changes are published with the existing COLUMNS_CHANGED change_type (no new enum value). Additive per platform-contracts semver, but it breaks search-indexer's strict vendored schema until that is updated."
@@ -195,7 +195,7 @@
     {
       "kind": "http",
       "name": "GET /v1/datasets/{urn}/columns",
-      "owner": "metadata-graph",
+      "owner": "metadata-service",
       "change": "modify",
       "compatibility": "additive",
       "description": "Each Column gains optional nullable classification, classification_source and tags fields (null when unclassified)."
@@ -203,7 +203,7 @@
     {
       "kind": "http",
       "name": "PUT /v1/datasets/{urn}/columns/{column}/classification",
-      "owner": "metadata-graph",
+      "owner": "metadata-service",
       "change": "new",
       "compatibility": "additive",
       "description": "Steward sets or overrides a column classification (body {classification}); stores classification_source=STEWARD, returns the updated Column, publishes metadata.dataset.changed.v1 COLUMNS_CHANGED; 400 on invalid value, 403 without steward permission, 404 on unknown dataset/column."
@@ -219,7 +219,7 @@
     {
       "kind": "http",
       "name": "POST /v1/query",
-      "owner": "query-gateway",
+      "owner": "consumption-gateway",
       "change": "modify",
       "compatibility": "additive",
       "description": "Values of masked columns in rows are replaced by a mask (row keys and row count unchanged), and the 200 response gains optional masked_columns listing which columns were masked."
@@ -229,16 +229,16 @@
     "Masking format: fixed string token (e.g. \"****\") for strings and null for non-strings, or type-preserving/partial masking (e.g. keep email domain)? Null may break consumers that assume NOT NULL columns.",
     "Is pii:read a single global grant, or should it also be scoped (pii:domain:<domain>:read, pii:dataset:<urn>:read) like the existing read grants?",
     "Which service principals (BI tools, pipelines) legitimately need unmasked PII and must be granted pii:read before enforcement is switched on?",
-    "How does query-gateway map result columns to dataset columns for arbitrary SQL (aliases, expressions, joins across datasets)? Name matching alone can be bypassed with 'SELECT email AS e'; should such queries be rejected or masked fail-closed, or should masking move to the warehouse (masking views/policies)?",
+    "How does consumption-gateway map result columns to dataset columns for arbitrary SQL (aliases, expressions, joins across datasets)? Name matching alone can be bypassed with 'SELECT email AS e'; should such queries be rejected or masked fail-closed, or should masking move to the warehouse (masking views/policies)?",
     "Who is a steward and how is the PUT classification endpoint authorized (new entitlements grant such as metadata:classify, or dataset owner)? Is an audit trail of overrides required?",
     "Tag vocabulary for suggestions: which comment tags map to PII, CONFIDENTIAL, INTERNAL, PUBLIC, and what is the precedence when several are present? Assumed: any of pii/email/phone/ssn -> PII, else confidential -> CONFIDENTIAL, internal -> INTERNAL, public -> PUBLIC, otherwise null.",
     "Should unclassified (null) columns stay unmasked (assumed) or be treated fail-closed?",
     "Backfill: existing datasets have no tags until their schema is re-discovered; do we trigger a full re-discovery, a one-off backfill job, or rely on steward classification?",
     "Which PII-format rules are required (email, phone E.164, national id, ...) and are they chosen by the column's tags (e.g. 'email') or by explicit rule bindings via /v1/rules? Columns classified PII by a steward with no subtype tag need a default rule.",
     "Should PII-format rule failures affect the dataset quality score (and therefore owner emails from notification-service), or be reported separately?",
-    "Should gateway.access.logged.v1 record masked_columns for audit? Not included here to keep usage-metering untouched.",
+    "Should consumption.access.logged.v1 record masked_columns for audit? Not included here to keep usage-metering untouched.",
     "Only the Postgres connector is in the workspace; do other ingestion connectors exist that also need tag extraction?",
-    "reporting-service is listed as a metadata.dataset.changed.v1 consumer in the metadata-graph README but is not in the workspace, and the README omits search-indexer and lineage-service; who owns reporting-service, and is it a strict or tolerant reader?",
+    "reporting-service is listed as a metadata.dataset.changed.v1 consumer in the metadata-service README but is not in the workspace, and the README omits search-indexer and lineage-service; who owns reporting-service, and is it a strict or tolerant reader?",
     "Should search-indexer index classification (e.g. allow searching for PII columns) or just accept and ignore it? This plan only requires accepting it."
   ]
 }

@@ -2,27 +2,27 @@
 ingestion.schema.discovered.v1:
   producer: ingestion-service
   consumers:
-    - metadata-graph
+    - metadata-service
 ingestion.batch.landed.v1:
   producer: ingestion-service
   consumers:
-    - dq-engine
+    - transformation-service
 ingestion.job.completed.v1:
   producer: ingestion-service
   consumers:
     - lineage-service
 metadata.dataset.changed.v1:
-  producer: metadata-graph
+  producer: metadata-service
   consumers:
     - entitlements-service
     - lineage-service
     - search-indexer
-dq.result.published.v1:
-  producer: dq-engine
+transformation.result.published.v1:
+  producer: transformation-service
   consumers:
-    - metadata-graph
+    - metadata-service
     - notification-service
-gateway.access.logged.v1:
-  producer: query-gateway
+consumption.access.logged.v1:
+  producer: consumption-gateway
   consumers:
     - usage-metering

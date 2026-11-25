@@ -3,19 +3,19 @@
 ```mermaid
 graph LR
   SRC[(Source DBs)] --> ING[ingestion-service]
-  ING -- ingestion.schema.discovered.v1 --> MG[metadata-graph]
-  ING -- ingestion.batch.landed.v1 --> DQ[dq-engine]
+  ING -- ingestion.schema.discovered.v1 --> MG[metadata-service]
+  ING -- ingestion.batch.landed.v1 --> TR[transformation-service]
   ING -- ingestion.job.completed.v1 --> LIN[lineage-service]
-  DQ -- dq.result.published.v1 --> MG
-  DQ -- dq.result.published.v1 --> NOT[notification-service]
+  TR -- transformation.result.published.v1 --> MG
+  TR -- transformation.result.published.v1 --> NOT[notification-service]
   MG -- metadata.dataset.changed.v1 --> ENT[entitlements-service]
   MG -- metadata.dataset.changed.v1 --> SRCH[search-indexer]
   MG -- metadata.dataset.changed.v1 --> LIN
-  DQ -- GET columns --> MG
+  TR -- GET columns --> MG
   ENT -- GET dataset --> MG
   NOT -- GET dataset --> MG
-  QG[query-gateway] -- POST /v1/access/decide --> ENT
-  QG -- gateway.access.logged.v1 --> UM[usage-metering]
+  QG[consumption-gateway] -- POST /v1/access/decide --> ENT
+  QG -- consumption.access.logged.v1 --> UM[usage-metering]
   USERS((Data consumers)) --> QG
 ```
 

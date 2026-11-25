@@ -1,6 +1,6 @@
 from collections import Counter
 
-TOPIC = "gateway.access.logged.v1"
+TOPIC = "consumption.access.logged.v1"
 
 
 def aggregate(events_iter) -> Counter:

@@ -9,7 +9,7 @@ metadata:
 spec:
   type: service
   lifecycle: decommissioned
-  owner: team-graph
+  owner: team-metadata
   system: data-platform
   providesApis: []
   consumesApis: []

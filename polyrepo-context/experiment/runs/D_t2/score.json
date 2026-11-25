@@ -11,7 +11,7 @@
   "edges_total": 11,
   "edges_missed": [],
   "edges_incorrect": [
-    "reporting-service->metadata-graph"
+    "reporting-service->metadata-service"
   ],
   "contracts_correct": [
     "C1",

@@ -17,4 +17,4 @@ spec:
   events:
     produces: []
     consumes:
-      - gateway.access.logged.v1
+      - consumption.access.logged.v1

@@ -1,6 +1,6 @@
 {"ticket": "DP-1423",
- "repositories": [{"name": "metadata-graph", "impact": "code_change"}, {"name": "reporting-service", "impact": "verify_only"},
+ "repositories": [{"name": "metadata-service", "impact": "code_change"}, {"name": "reporting-service", "impact": "verify_only"},
                   {"name": "billing-service", "impact": "code_change"}],
- "dependencies": [{"consumer": "reporting-service", "provider": "metadata-graph"}, {"consumer": "billing-service", "provider": "metadata-graph"}],
- "contracts": [{"kind": "http", "name": "GET /v1/datasets/{urn}/columns", "owner": "metadata-graph", "change": "modify"},
-               {"kind": "event", "name": "metadata.columns.updated.v1", "owner": "metadata-graph", "change": "modify"}]}
+ "dependencies": [{"consumer": "reporting-service", "provider": "metadata-service"}, {"consumer": "billing-service", "provider": "metadata-service"}],
+ "contracts": [{"kind": "http", "name": "GET /v1/datasets/{urn}/columns", "owner": "metadata-service", "change": "modify"},
+               {"kind": "event", "name": "metadata.columns.updated.v1", "owner": "metadata-service", "change": "modify"}]}

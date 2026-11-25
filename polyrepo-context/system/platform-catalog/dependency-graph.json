@@ -8,34 +8,34 @@
       "ref": "platform-sdk"
     },
     {
-      "from": "metadata-graph",
+      "from": "metadata-service",
       "to": "ingestion-service",
       "via": "event",
       "ref": "ingestion.schema.discovered.v1"
     },
     {
-      "from": "metadata-graph",
-      "to": "dq-engine",
+      "from": "metadata-service",
+      "to": "transformation-service",
       "via": "event",
-      "ref": "dq.result.published.v1"
+      "ref": "transformation.result.published.v1"
     },
     {
-      "from": "metadata-graph",
+      "from": "metadata-service",
       "to": "platform-sdk",
       "via": "library",
       "ref": "platform-sdk"
     },
     {
       "from": "entitlements-service",
-      "to": "metadata-graph",
+      "to": "metadata-service",
       "via": "event",
       "ref": "metadata.dataset.changed.v1"
     },
     {
       "from": "entitlements-service",
-      "to": "metadata-graph",
+      "to": "metadata-service",
       "via": "http",
-      "ref": "metadata-graph-api"
+      "ref": "metadata-service-api"
     },
     {
       "from": "entitlements-service",
@@ -44,38 +44,38 @@
       "ref": "platform-sdk"
     },
     {
-      "from": "query-gateway",
+      "from": "consumption-gateway",
       "to": "entitlements-service",
       "via": "http",
       "ref": "entitlements-api"
     },
     {
-      "from": "query-gateway",
+      "from": "consumption-gateway",
       "to": "platform-sdk",
       "via": "library",
       "ref": "platform-sdk"
     },
     {
-      "from": "dq-engine",
+      "from": "transformation-service",
       "to": "ingestion-service",
       "via": "event",
       "ref": "ingestion.batch.landed.v1"
     },
     {
-      "from": "dq-engine",
-      "to": "metadata-graph",
+      "from": "transformation-service",
+      "to": "metadata-service",
       "via": "http",
-      "ref": "metadata-graph-api"
+      "ref": "metadata-service-api"
     },
     {
-      "from": "dq-engine",
+      "from": "transformation-service",
       "to": "platform-sdk",
       "via": "library",
       "ref": "platform-sdk"
     },
     {
       "from": "search-indexer",
-      "to": "metadata-graph",
+      "to": "metadata-service",
       "via": "event",
       "ref": "metadata.dataset.changed.v1"
     },
@@ -93,7 +93,7 @@
     },
     {
       "from": "lineage-service",
-      "to": "metadata-graph",
+      "to": "metadata-service",
       "via": "event",
       "ref": "metadata.dataset.changed.v1"
     },
@@ -105,15 +105,15 @@
     },
     {
       "from": "notification-service",
-      "to": "dq-engine",
+      "to": "transformation-service",
       "via": "event",
-      "ref": "dq.result.published.v1"
+      "ref": "transformation.result.published.v1"
     },
     {
       "from": "notification-service",
-      "to": "metadata-graph",
+      "to": "metadata-service",
       "via": "http",
-      "ref": "metadata-graph-api"
+      "ref": "metadata-service-api"
     },
     {
       "from": "notification-service",
@@ -123,15 +123,15 @@
     },
     {
       "from": "usage-metering",
-      "to": "query-gateway",
+      "to": "consumption-gateway",
       "via": "event",
-      "ref": "gateway.access.logged.v1"
+      "ref": "consumption.access.logged.v1"
     },
     {
       "from": "platform-sdk",
-      "to": "metadata-graph",
+      "to": "metadata-service",
       "via": "http",
-      "ref": "metadata-graph-api"
+      "ref": "metadata-service-api"
     },
     {
       "from": "platform-sdk",
@@ -153,9 +153,9 @@
     },
     {
       "from": "platform-e2e",
-      "to": "metadata-graph",
+      "to": "metadata-service",
       "via": "tests",
-      "ref": "metadata-graph"
+      "ref": "metadata-service"
     },
     {
       "from": "platform-e2e",
@@ -165,15 +165,15 @@
     },
     {
       "from": "platform-e2e",
-      "to": "query-gateway",
+      "to": "consumption-gateway",
       "via": "tests",
-      "ref": "query-gateway"
+      "ref": "consumption-gateway"
     },
     {
       "from": "platform-e2e",
-      "to": "dq-engine",
+      "to": "transformation-service",
       "via": "tests",
-      "ref": "dq-engine"
+      "ref": "transformation-service"
     }
   ]
 }

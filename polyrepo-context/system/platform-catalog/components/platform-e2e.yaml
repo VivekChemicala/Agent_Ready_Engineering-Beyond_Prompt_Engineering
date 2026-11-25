@@ -15,10 +15,10 @@ spec:
   consumesApis: []
   dependsOn:
     - component:ingestion-service
-    - component:metadata-graph
+    - component:metadata-service
     - component:entitlements-service
-    - component:query-gateway
-    - component:dq-engine
+    - component:consumption-gateway
+    - component:transformation-service
   events:
     produces: []
     consumes: []

@@ -1,6 +1,6 @@
 """Build each arm's workspace from ../system. Arms differ only by what they contain.
 
-A  metadata-graph only (the assigned team's repo and its README)
+A  metadata-service only (the assigned team's repo and its README)
 B  A + platform-catalog (service catalog + dependency graph)
 C  B + platform-contracts (OpenAPI / event schemas) + architecture-docs
 D  every live repository's code side by side (monorepo-equivalent), no catalog/docs
@@ -13,15 +13,15 @@ import sys
 from pathlib import Path
 
 SYSTEM = Path(__file__).resolve().parent.parent / "system"
-LIVE_REPOS = ["dq-engine", "entitlements-service", "ingestion-service",
-              "lineage-service", "metadata-graph", "notification-service",
+LIVE_REPOS = ["transformation-service", "entitlements-service", "ingestion-service",
+              "lineage-service", "metadata-service", "notification-service",
               "platform-contracts", "platform-e2e", "platform-sdk",
-              "query-gateway", "search-indexer", "usage-metering"]
+              "consumption-gateway", "search-indexer", "usage-metering"]
 
 ARMS = {
-    "A": ["repos/metadata-graph"],
-    "B": ["repos/metadata-graph", "platform-catalog"],
-    "C": ["repos/metadata-graph", "platform-catalog", "repos/platform-contracts",
+    "A": ["repos/metadata-service"],
+    "B": ["repos/metadata-service", "platform-catalog"],
+    "C": ["repos/metadata-service", "platform-catalog", "repos/platform-contracts",
           "architecture-docs"],
     "D": [f"repos/{r}" for r in LIVE_REPOS],
 }

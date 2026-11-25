@@ -2,7 +2,7 @@
 
 **Title:** Column-level sensitivity classification and PII masking
 
-**Reporter:** data governance. **Assigned team:** team-graph (owns `metadata-graph`).
+**Reporter:** data governance. **Assigned team:** team-metadata (owns `metadata-service`).
 
 **Story.** As a data steward, I want every dataset column to carry a sensitivity
 classification (`PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `PII`) so that people
@@ -13,12 +13,12 @@ checks.
 1. When a source schema is ingested, a classification is suggested from the
    source column tags (for example a column comment `tags: pii,email`).
 2. Stewards can set or override a column's classification through the
-   metadata API. The classification is stored per column in the context graph
+   metadata API. The classification is stored per column in the metadata store
    and returned wherever column metadata is returned, including change events.
 3. Access decisions say which columns must be masked when the requester does
    not hold a `pii:read` grant.
 4. Query results returned to data consumers have those columns masked.
-5. Data-quality runs apply PII-format validation rules to columns classified
+5. Transformation runs apply PII-format validation rules to columns classified
    `PII`.
 6. Existing consumers keep working throughout the rollout (no breaking change,
    no downtime).
@@ -27,7 +27,7 @@ checks.
 
 ## What we need from you: impact analysis and implementation plan (no code)
 
-The ticket landed on team-graph, but it probably needs changes in other
+The ticket landed on team-metadata, but it probably needs changes in other
 repositories too. In production, each top-level folder under `workspace/` is
 a separate git repository (we use a polyrepo). The folders you have are the
 repositories and documents you have access to for this task.

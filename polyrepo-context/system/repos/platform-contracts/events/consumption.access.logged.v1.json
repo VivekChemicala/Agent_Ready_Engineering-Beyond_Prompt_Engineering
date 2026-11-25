@@ -1,0 +1,4 @@
+{"title": "consumption.access.logged.v1", "type": "object",
+ "required": ["event_id", "principal", "dataset_urn", "row_count"],
+ "properties": {"event_id": {"type": "string"}, "principal": {"type": "string"},
+  "dataset_urn": {"type": "string"}, "row_count": {"type": "integer"}}}

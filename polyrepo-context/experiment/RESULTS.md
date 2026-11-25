@@ -5,13 +5,13 @@ All services, teams, topics, APIs and the Jira ticket are **synthetic**.
 ## Setup
 
 - **System:** 13 fictional repos for a data platform (ingestion, metadata/context
-  graph, entitlements, query gateway, DQ, search, lineage, notification, usage
+  graph, entitlements, consumption gateway, transformation, search, lineage, notification, usage
   metering, a decommissioned reporting service, a shared SDK, a contracts repo
   and a cross-service e2e repo). Source of truth: `system_model.py`.
 - **Ticket:** DP-1423, column sensitivity classification and PII masking
-  (`task.md`). It lands on team-graph (`metadata-graph`) but needs code changes
+  (`task.md`). It lands on team-metadata (`metadata-service`) but needs code changes
   in 9 repos and verification in 1.
-- **Traps built in:** `metadata-graph`'s README is stale and still lists
+- **Traps built in:** `metadata-service`'s README is stale and still lists
   `reporting-service` as a consumer (it is decommissioned). `search-indexer`
   validates events strictly (`additionalProperties: false`). `platform-sdk`
   models drop unknown fields.
@@ -19,7 +19,7 @@ All services, teams, topics, APIs and the Jira ticket are **synthetic**.
 
 | Arm | Workspace | Files | Bytes |
 |---|---|---|---|
-| A | `metadata-graph` repo only | 13 | 8,242 |
+| A | `metadata-service` repo only | 13 | 8,242 |
 | B | A + Backstage-style catalog and dependency graph | 34 | 24,177 |
 | C | B + OpenAPI/event contracts + architecture docs (flows, ADRs, consumer registry, change playbook) | 56 | 36,581 |
 | D (added) | All 12 live repos' code side by side ("monorepo checkout"), no catalog or docs | 79 | 32,730 |
@@ -54,7 +54,7 @@ Per-trial numbers, including missed and wrong repos, are in
 
 1. **One repo is not enough (A).** Every A trial missed `search-indexer`
    (the strict consumer), `lineage-service` and `platform-e2e`, guessed repo
-   names that do not exist (such as `query-service`), and followed the stale
+   names that do not exist (such as `consumption-service`), and followed the stale
    README into the decommissioned `reporting-service`. One trial put masking
    enforcement there.
 2. **A catalog alone fixes discovery (B).** All three B trials found all 10
@@ -93,7 +93,7 @@ Per-trial numbers, including missed and wrong repos, are in
 ## Scoring notes and corrections
 
 - `notification-service` is listed as a wrong repo in 7 trials. Every one of
-  those trials marked it `verify_only` because it calls metadata-graph through
+  those trials marked it `verify_only` because it calls metadata-service through
   the SDK being bumped. The answer key says "not impacted"; the trials' reason
   is defensible, so treat that column as conservative.
 - `platform-catalog` (B_t1, B_t3) was listed as a `verify_only` "repo". It is

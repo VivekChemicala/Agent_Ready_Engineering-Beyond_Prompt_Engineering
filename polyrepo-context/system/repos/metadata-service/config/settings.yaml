@@ -1,0 +1,12 @@
+service: metadata-service
+http:
+  port: 8081
+kafka:
+  group_id: metadata-service
+  consume:
+    - ingestion.schema.discovered.v1
+    - transformation.result.published.v1
+  produce:
+    dataset_changed: metadata.dataset.changed.v1
+metadata_db:
+  url: ${METADATA_DB_URL}

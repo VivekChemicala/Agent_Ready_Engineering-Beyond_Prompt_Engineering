@@ -13,15 +13,15 @@
   "edges_correct": 5,
   "edges_total": 11,
   "edges_missed": [
+    "consumption-gateway|platform-sdk",
     "entitlements-service|platform-sdk",
-    "lineage-service|metadata-graph",
-    "metadata-graph|search-indexer",
+    "lineage-service|metadata-service",
+    "metadata-service|search-indexer",
     "platform-contracts|platform-sdk",
-    "platform-contracts|search-indexer",
-    "platform-sdk|query-gateway"
+    "platform-contracts|search-indexer"
   ],
   "edges_incorrect": [
-    "reporting-service->metadata-graph"
+    "reporting-service->metadata-service"
   ],
   "contracts_correct": [
     "C1",
