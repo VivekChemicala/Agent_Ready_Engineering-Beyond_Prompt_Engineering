@@ -1,0 +1,20 @@
+{
+  "$id": "metadata.dataset.column.sensitivity.request.v1",
+  "$comment": "Synthetic contract for a controlled experiment.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "sensitivity"
+  ],
+  "properties": {
+    "sensitivity": {
+      "type": "string",
+      "enum": [
+        "PUBLIC",
+        "INTERNAL",
+        "CONFIDENTIAL",
+        "PII"
+      ]
+    }
+  }
+}
