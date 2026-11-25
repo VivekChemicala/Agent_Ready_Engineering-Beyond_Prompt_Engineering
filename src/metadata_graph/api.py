@@ -2,6 +2,7 @@
 from platform_contracts import ContractError, validate
 
 from metadata_graph.events import EventPublisher
+from metadata_graph.sensitivity import suggest_sensitivity, with_sensitivity
 from metadata_graph.store import GraphStore
 
 ROUTES: list[tuple[str, str, object]] = []
@@ -23,6 +24,10 @@ def _is_steward(headers: dict) -> bool:
     return "steward" in {r.strip() for r in roles.split(",")}
 
 
+def _public(dataset: dict) -> dict:
+    return {**dataset, "columns": [with_sensitivity(c) for c in dataset["columns"]]}
+
+
 @route("POST", "/v1/datasets")
 def register_dataset(store: GraphStore, events: EventPublisher, params: dict, body, headers: dict):
     try:
@@ -30,15 +35,26 @@ def register_dataset(store: GraphStore, events: EventPublisher, params: dict, bo
     except ContractError as exc:
         return error(400, "INVALID_REQUEST", str(exc))
     existed = store.exists(body["urn"])
+    names = {c["name"] for c in body["columns"]}
+    overrides = {n: lvl for n, lvl in store.get_overrides(body["urn"]).items() if n in names}
     dataset = {
         "urn": body["urn"],
         "name": body["name"],
         "owner": body["owner"],
-        "columns": [{"name": c["name"], "type": c["type"], "tags": list(c["tags"])} for c in body["columns"]],
+        "columns": [
+            {
+                "name": c["name"],
+                "type": c["type"],
+                "tags": list(c["tags"]),
+                "sensitivity": overrides.get(c["name"], suggest_sensitivity(c["tags"])),
+            }
+            for c in body["columns"]
+        ],
     }
     store.put(dataset)
+    store.replace_overrides(body["urn"], overrides)
     events.dataset_changed(dataset, "UPDATED" if existed else "CREATED")
-    return (200 if existed else 201), dataset
+    return (200 if existed else 201), _public(dataset)
 
 
 @route("GET", "/v1/datasets/{urn}")
@@ -46,7 +62,7 @@ def get_dataset(store: GraphStore, events: EventPublisher, params: dict, body, h
     dataset = store.get(params["urn"])
     if dataset is None:
         return error(404, "NOT_FOUND", f"dataset {params['urn']} not found")
-    return 200, dataset
+    return 200, _public(dataset)
 
 
 @route("GET", "/v1/datasets/{urn}/columns")
@@ -54,7 +70,7 @@ def get_columns(store: GraphStore, events: EventPublisher, params: dict, body, h
     dataset = store.get(params["urn"])
     if dataset is None:
         return error(404, "NOT_FOUND", f"dataset {params['urn']} not found")
-    response = {"urn": dataset["urn"], "columns": dataset["columns"]}
+    response = {"urn": dataset["urn"], "columns": [with_sensitivity(c) for c in dataset["columns"]]}
     validate("metadata.columns.response.v1", response)
     return 200, response
 
@@ -73,4 +89,25 @@ def set_owner(store: GraphStore, events: EventPublisher, params: dict, body, hea
     dataset["owner"] = body["owner"]
     store.put(dataset)
     events.dataset_changed(dataset, "UPDATED")
-    return 200, dataset
+    return 200, _public(dataset)
+
+
+@route("PUT", "/v1/datasets/{urn}/columns/{column}/sensitivity")
+def set_column_sensitivity(store: GraphStore, events: EventPublisher, params: dict, body, headers: dict):
+    if not _is_steward(headers):
+        return error(403, "FORBIDDEN", "steward role required")
+    dataset = store.get(params["urn"])
+    if dataset is None:
+        return error(404, "NOT_FOUND", f"dataset {params['urn']} not found")
+    column = next((c for c in dataset["columns"] if c["name"] == params["column"]), None)
+    if column is None:
+        return error(404, "NOT_FOUND", f"column {params['column']} not found in dataset {params['urn']}")
+    try:
+        validate("metadata.dataset.column.sensitivity.request.v1", body)
+    except ContractError as exc:
+        return error(400, "INVALID_REQUEST", str(exc))
+    column["sensitivity"] = body["sensitivity"]
+    store.set_override(dataset["urn"], column["name"], body["sensitivity"])
+    store.put(dataset)
+    events.dataset_changed(dataset, "UPDATED")
+    return 200, with_sensitivity(column)
