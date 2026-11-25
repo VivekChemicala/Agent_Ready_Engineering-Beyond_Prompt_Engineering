@@ -1,0 +1,27 @@
+{
+  "schema": "metadata.dataset.changed.v1",
+  "payload": {
+    "event_type": "metadata.dataset.changed",
+    "urn": "urn:ds:crm.customers",
+    "change": "UPDATED",
+    "owner": "team-crm",
+    "columns": [
+      {
+        "name": "customer_id",
+        "type": "string",
+        "tags": [
+          "key"
+        ],
+        "sensitivity": "PUBLIC"
+      },
+      {
+        "name": "email",
+        "type": "string",
+        "tags": [
+          "pii"
+        ],
+        "sensitivity": "PII"
+      }
+    ]
+  }
+}

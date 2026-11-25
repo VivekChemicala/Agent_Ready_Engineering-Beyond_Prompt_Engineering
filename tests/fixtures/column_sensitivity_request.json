@@ -1,0 +1,6 @@
+{
+  "schema": "metadata.dataset.column.sensitivity.request.v1",
+  "payload": {
+    "sensitivity": "CONFIDENTIAL"
+  }
+}
