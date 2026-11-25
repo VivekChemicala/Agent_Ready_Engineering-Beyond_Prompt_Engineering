@@ -1,0 +1,48 @@
+{
+  "schema": "metadata.dataset.changed.v1",
+  "payload": {
+    "event_type": "metadata.dataset.changed",
+    "urn": "urn:ds:crm.customers",
+    "change": "UPDATED",
+    "owner": "team-crm",
+    "columns": [
+      {
+        "name": "customer_id",
+        "type": "string",
+        "tags": [
+          "key"
+        ],
+        "sensitivity": "INTERNAL"
+      },
+      {
+        "name": "email",
+        "type": "string",
+        "tags": [
+          "pii"
+        ],
+        "sensitivity": "PII"
+      },
+      {
+        "name": "segment",
+        "type": "string",
+        "tags": [
+          "confidential"
+        ],
+        "sensitivity": "CONFIDENTIAL"
+      },
+      {
+        "name": "country",
+        "type": "string",
+        "tags": [
+          "public"
+        ],
+        "sensitivity": "PUBLIC"
+      },
+      {
+        "name": "signup_date",
+        "type": "date",
+        "tags": []
+      }
+    ]
+  }
+}

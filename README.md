@@ -21,6 +21,7 @@ JSON Schemas for HTTP payloads and events, plus the validator every service uses
 | `metadata.columns.response.v1` | `GET /v1/datasets/{urn}/columns` response body |
 | `metadata.dataset.owner.request.v1` | `PUT /v1/datasets/{urn}/owner` request body |
 | `metadata.dataset.changed.v1` | event emitted on every dataset create/update |
+| `metadata.column.sensitivity.request.v1` | `PUT /v1/datasets/{urn}/columns/{column}/sensitivity` request body |
 
 All object schemas are closed (`additionalProperties: false`), so a field that is not in the
 schema is rejected by every validating producer and consumer.
