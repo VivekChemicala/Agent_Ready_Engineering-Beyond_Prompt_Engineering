@@ -1,0 +1,45 @@
+{
+  "schema": "metadata.columns.response.v1",
+  "payload": {
+    "urn": "urn:ds:crm.customers",
+    "columns": [
+      {
+        "name": "customer_id",
+        "type": "string",
+        "tags": [
+          "key"
+        ],
+        "sensitivity": "INTERNAL"
+      },
+      {
+        "name": "email",
+        "type": "string",
+        "tags": [
+          "pii"
+        ],
+        "sensitivity": "PII"
+      },
+      {
+        "name": "country",
+        "type": "string",
+        "tags": [
+          "public"
+        ],
+        "sensitivity": "PUBLIC"
+      },
+      {
+        "name": "credit_limit",
+        "type": "integer",
+        "tags": [
+          "confidential"
+        ],
+        "sensitivity": "CONFIDENTIAL"
+      },
+      {
+        "name": "segment",
+        "type": "string",
+        "tags": []
+      }
+    ]
+  }
+}

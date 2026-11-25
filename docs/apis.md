@@ -6,6 +6,7 @@
 | GET | `/v1/datasets/{urn}` | - | 200: dataset |
 | GET | `/v1/datasets/{urn}/columns` | - | 200: `metadata.columns.response.v1` |
 | PUT | `/v1/datasets/{urn}/owner` | `metadata.dataset.owner.request.v1` | 200: dataset (requires `steward` role) |
+| PUT | `/v1/datasets/{urn}/columns/{column}/sensitivity` | `metadata.column.sensitivity.request.v1` | 200: column (requires `steward` role) |
 
 Errors use `{"error": {"code": "...", "message": "..."}}` with codes
 `INVALID_REQUEST` (400), `FORBIDDEN` (403), `NOT_FOUND` (404).

@@ -36,6 +36,15 @@
             "items": {
               "type": "string"
             }
+          },
+          "sensitivity": {
+            "type": "string",
+            "enum": [
+              "PUBLIC",
+              "INTERNAL",
+              "CONFIDENTIAL",
+              "PII"
+            ]
           }
         }
       }
