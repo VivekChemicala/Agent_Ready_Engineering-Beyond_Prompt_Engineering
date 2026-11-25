@@ -1,0 +1,24 @@
+{
+  "schema": "metadata.columns.response.v1",
+  "payload": {
+    "urn": "urn:ds:crm.customers",
+    "columns": [
+      {
+        "name": "customer_id",
+        "type": "string",
+        "tags": [
+          "key"
+        ],
+        "sensitivity": "INTERNAL"
+      },
+      {
+        "name": "email",
+        "type": "string",
+        "tags": [
+          "pii"
+        ],
+        "sensitivity": "PII"
+      }
+    ]
+  }
+}
