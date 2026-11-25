@@ -163,3 +163,16 @@ def test_column_stored_without_level_is_internal():
     assert body["columns"][0]["sensitivity"] == "INTERNAL"
     app.handle("PUT", f"/v1/datasets/{URN}/owner", {"owner": "team-x"}, STEWARD)
     assert app.sink[-1]["columns"][0]["sensitivity"] == "INTERNAL"
+
+
+def test_every_event_validates_and_carries_levels(app):
+    from platform_contracts import validate
+    app.handle("POST", "/v1/datasets", BODY)
+    app.handle("PUT", f"/v1/datasets/{URN}/columns/email/sensitivity", {"sensitivity": "CONFIDENTIAL"}, STEWARD)
+    app.handle("PUT", f"/v1/datasets/{URN}/owner", {"owner": "team-x"}, STEWARD)
+    app.handle("POST", "/v1/datasets", BODY)
+    assert [e["change"] for e in app.sink] == ["CREATED", "UPDATED", "UPDATED", "UPDATED"]
+    for event in app.sink:
+        validate("metadata.dataset.changed.v1", event)
+        assert all("sensitivity" in c for c in event["columns"])
+    assert _levels(app.sink[-1]["columns"]) == {"customer_id": "INTERNAL", "email": "CONFIDENTIAL"}

@@ -5,7 +5,7 @@ from metadata_graph import sensitivity
 from metadata_graph.events import EventPublisher
 from metadata_graph.store import GraphStore
 
-SENSITIVITY_REQUEST = "metadata.column.sensitivity.request.v1"
+SENSITIVITY_REQUEST = "metadata.dataset.column.sensitivity.request.v1"
 
 ROUTES: list[tuple[str, str, object]] = []
 
