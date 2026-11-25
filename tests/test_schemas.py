@@ -62,12 +62,11 @@ def test_columns_accept_every_sensitivity_level(schema, level):
     validate(schema, payload)
 
 
-@pytest.mark.parametrize("schema", COLUMN_SCHEMAS)
-def test_column_sensitivity_is_optional(schema):
-    payload = _column_payload(schema)
+def test_column_sensitivity_is_optional_per_column_in_columns_response():
+    payload = _column_payload("metadata.columns.response.v1")
     payload["columns"][0]["sensitivity"] = "PII"
     assert "sensitivity" not in payload["columns"][1]
-    validate(schema, payload)
+    validate("metadata.columns.response.v1", payload)
 
 
 @pytest.mark.parametrize("schema", COLUMN_SCHEMAS)
@@ -114,3 +113,61 @@ def test_sensitivity_request_accepts_every_level(level):
 def test_sensitivity_request_rejects_invalid_bodies(body):
     with pytest.raises(ContractError):
         validate(SENSITIVITY_REQUEST, body)
+
+
+def _event(change, owner, columns):
+    return {"event_type": "metadata.dataset.changed", "urn": "urn:ds:crm.customers",
+            "change": change, "owner": owner, "columns": columns}
+
+
+def _col(name, tags, level):
+    return {"name": name, "type": "string", "tags": tags, "sensitivity": level}
+
+
+EMITTED_EVENTS = {
+    "create": _event("CREATED", "team-crm", [
+        _col("customer_id", ["key"], "INTERNAL"), _col("email", ["pii"], "PII")]),
+    "override": _event("UPDATED", "team-crm", [
+        _col("customer_id", ["key"], "PUBLIC"), _col("email", ["pii"], "PII")]),
+    "owner_change": _event("UPDATED", "team-sales", [
+        _col("customer_id", ["key"], "PUBLIC"), _col("email", ["pii"], "PII")]),
+    "re_register_with_new_column": _event("UPDATED", "team-crm", [
+        _col("customer_id", ["key"], "PUBLIC"), _col("email", ["pii"], "PII"),
+        _col("vip_notes", ["confidential", "public"], "CONFIDENTIAL")]),
+}
+
+
+@pytest.mark.parametrize("path", sorted(EMITTED_EVENTS))
+def test_every_emitted_event_with_levels_is_valid(path):
+    validate("metadata.dataset.changed.v1", EMITTED_EVENTS[path])
+
+
+@pytest.mark.parametrize("path", sorted(EMITTED_EVENTS))
+@pytest.mark.parametrize("missing", [0, -1])
+def test_event_with_a_level_missing_on_some_column_is_rejected(path, missing):
+    event = json.loads(json.dumps(EMITTED_EVENTS[path]))
+    del event["columns"][missing]["sensitivity"]
+    with pytest.raises(ContractError, match="missing sensitivity"):
+        validate("metadata.dataset.changed.v1", event)
+
+
+def test_event_without_any_level_stays_valid():
+    payload = _fixture("dataset_changed.json")["payload"]
+    assert all("sensitivity" not in c for c in payload["columns"])
+    validate("metadata.dataset.changed.v1", payload)
+
+
+def test_columns_response_tolerates_columns_without_level():
+    payload = _column_payload("metadata.columns.response.v1")
+    payload["columns"][1]["sensitivity"] = "PII"
+    validate("metadata.columns.response.v1", payload)
+
+
+def test_all_or_none_keyword():
+    schema = {"type": "array", "items": {"type": "object"}, "x-itemsAllOrNone": ["a"]}
+    from platform_contracts.validator import _check
+    _check([], schema, "$")
+    _check([{}, {}], schema, "$")
+    _check([{"a": 1}, {"a": 2}], schema, "$")
+    with pytest.raises(ContractError, match=r"\$\[1\]: missing a"):
+        _check([{"a": 1}, {}], schema, "$")

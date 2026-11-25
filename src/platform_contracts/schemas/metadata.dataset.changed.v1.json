@@ -34,6 +34,9 @@
     },
     "columns": {
       "type": "array",
+      "x-itemsAllOrNone": [
+        "sensitivity"
+      ],
       "items": {
         "type": "object",
         "additionalProperties": false,

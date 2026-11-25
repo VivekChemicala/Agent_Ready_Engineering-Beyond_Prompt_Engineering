@@ -4,6 +4,9 @@
 - DP-1501: add optional column `sensitivity` (`PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `PII`) to
   `metadata.columns.response.v1` and `metadata.dataset.changed.v1`. A column without it is
   `INTERNAL` (`platform_contracts.DEFAULT_SENSITIVITY`).
+- DP-1501: in `metadata.dataset.changed.v1`, once any column carries `sensitivity` every column
+  must (new validator keyword `x-itemsAllOrNone`), so a producer cannot emit an event with a level
+  missing on some column. Events without any level (2.3.0 payloads) stay valid.
 - DP-1501: add `metadata.dataset.column.sensitivity.request.v1` for
   `PUT /v1/datasets/{urn}/columns/{column}/sensitivity`.
 

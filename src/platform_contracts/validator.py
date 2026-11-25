@@ -1,5 +1,9 @@
 """Minimal JSON Schema subset validator (type, required, properties,
-additionalProperties, enum, items, minLength), so services need no third-party deps."""
+additionalProperties, enum, items, minLength), so services need no third-party deps.
+
+Extension keyword `x-itemsAllOrNone` (arrays of objects): for each listed field, either no item
+carries it or every item does. It lets an optional field become mandatory for every item once a
+producer starts sending it, without invalidating payloads that never carried it."""
 import json
 from pathlib import Path
 
@@ -53,6 +57,12 @@ def _check(value, schema: dict, path: str) -> None:
     if isinstance(value, list) and "items" in schema:
         for i, item in enumerate(value):
             _check(item, schema["items"], f"{path}[{i}]")
+    if isinstance(value, list):
+        for key in schema.get("x-itemsAllOrNone", []):
+            present = [isinstance(item, dict) and key in item for item in value]
+            if any(present) and not all(present):
+                i = present.index(False)
+                raise ContractError(f"{path}[{i}]: missing {key} (required on every item once any item has it)")
 
 
 def validate(name: str, payload) -> None:

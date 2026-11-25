@@ -18,5 +18,10 @@ Columns in `metadata.columns.response.v1` and `metadata.dataset.changed.v1` may 
 `sensitivity`, one of `PUBLIC` < `INTERNAL` < `CONFIDENTIAL` < `PII` (least to most restrictive,
 `platform_contracts.SENSITIVITY_LEVELS`). The field is optional for backwards compatibility; a
 column without it must be treated as `INTERNAL` (`platform_contracts.DEFAULT_SENSITIVITY`).
+
+Producer rule for `metadata.dataset.changed.v1`: every event metadata-graph emits (create,
+re-register, steward override, owner change) carries `sensitivity` on every column. The schema
+enforces this with `x-itemsAllOrNone`: an event where some columns have a level and others do not
+is rejected. Events with no level at all (2.3.0 payloads) remain valid for backwards compatibility.
 The register request (`metadata.dataset.register.request.v1`) does not carry it: metadata-graph
 suggests the level from the column `tags` and stewards override it with the `PUT` above.
