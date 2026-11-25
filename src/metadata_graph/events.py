@@ -1,6 +1,8 @@
 """Publishes metadata.dataset.changed.v1 events to a sink (a list in tests, a topic in production)."""
 from platform_contracts import validate
 
+from metadata_graph.sensitivity import with_level
+
 TOPIC = "metadata.dataset.changed.v1"
 
 
@@ -14,7 +16,7 @@ class EventPublisher:
             "urn": dataset["urn"],
             "change": change,
             "owner": dataset["owner"],
-            "columns": [dict(c) for c in dataset["columns"]],
+            "columns": [with_level(c) for c in dataset["columns"]],
         }
         validate(TOPIC, event)
         self.sink.append(event)

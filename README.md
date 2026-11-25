@@ -12,6 +12,10 @@ Owner: `team-metadata`. Stores datasets and their columns, serves the Metadata A
   `usage-metering` (consumes `metadata.dataset.changed.v1`).
 - Errors: `{"error": {"code": ..., "message": ...}}`, codes `INVALID_REQUEST` 400, `FORBIDDEN` 403,
   `NOT_FOUND` 404. Roles arrive in the `X-Roles` header (comma separated); stewards have `steward`.
+- Sensitivity (DP-1501): every column carries `sensitivity` (`PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `PII`).
+  On registration it is suggested from tags (`pii` > `confidential` > `public`, otherwise `INTERNAL`).
+  Stewards override it with `PUT /v1/datasets/{urn}/columns/{column}/sensitivity` `{"sensitivity": "<LEVEL>"}`
+  (200 with the updated column, emits `UPDATED`); overrides survive re-registration while the column exists.
 
 ## Develop
 
