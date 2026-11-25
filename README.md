@@ -12,6 +12,10 @@ where access rules are applied to result rows.
 - Models: `query_gateway.models.Column` is an explicit typed model; fields it does not declare are
   dropped when parsing.
 - Callers pass their permissions as a set of strings; `dataset:read` is required to query.
+- Masking (DP-1501): every non-null value of a column whose `sensitivity` is `PII` is replaced by
+  `"***"` unless the caller has `pii:read`; nulls stay null. The response lists the masked columns,
+  in dataset column order, in `masked_columns` (`[]` when nothing is masked). A column without a
+  `sensitivity` is treated as `INTERNAL`. Other levels are not masked.
 
 ## Develop
 
