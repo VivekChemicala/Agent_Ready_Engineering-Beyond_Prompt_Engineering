@@ -1,4 +1,7 @@
+import pytest
+
 from query_gateway.metadata_client import MetadataClient
+from query_gateway.models import Column
 from query_gateway.service import QueryService
 
 URN = "urn:ds:crm.customers"
@@ -89,3 +92,46 @@ def test_masking_follows_level_not_tags():
 def test_unknown_sensitivity_level_is_upstream_contract_violation():
     body = {"urn": URN, "columns": [{"name": "x", "type": "string", "tags": [], "sensitivity": "SECRET"}]}
     assert service(body).run("u1", {"dataset:read"}, URN, ROWS) == {"status": 502, "error": "UPSTREAM_CONTRACT"}
+
+
+class FakeMetadataGraph:
+    """Stands in for metadata-graph: steward overrides change what GET .../columns returns."""
+
+    def __init__(self, columns):
+        self.columns = [dict(c) for c in columns]
+
+    def override(self, column, level):
+        next(c for c in self.columns if c["name"] == column)["sensitivity"] = level
+
+    def transport(self, method, path):
+        assert (method, path) == ("GET", f"/v1/datasets/{URN}/columns")
+        return 200, {"urn": URN, "columns": [dict(c) for c in self.columns]}
+
+
+def test_steward_override_changes_what_is_masked_on_next_query():
+    graph = FakeMetadataGraph(PII_COLUMNS["columns"])
+    svc = QueryService(MetadataClient(graph.transport))
+    assert svc.run("u1", {"dataset:read"}, URN, PII_ROWS)["masked_columns"] == ["phone", "email"]
+
+    graph.override("email", "INTERNAL")
+    graph.override("customer_id", "PII")
+    out = svc.run("u1", {"dataset:read"}, URN, PII_ROWS)
+    assert out["masked_columns"] == ["customer_id", "phone"]
+    assert out["rows"][0] == {"customer_id": "***", "phone": "***", "segment": "gold",
+                              "email": "a@example.test", "country": "NL"}
+
+
+@pytest.mark.parametrize("column, expected", [
+    ({"name": "e", "type": "string", "tags": ["pii"], "sensitivity": "PII"}, "PII"),
+    ({"name": "e", "type": "string", "tags": ["pii"]}, "INTERNAL"),
+    ({"name": "e", "type": "string", "tags": ["pii"], "sensitivity": None}, "INTERNAL"),
+    ({"name": "e", "type": "string", "tags": [], "sensitivity": "PII", "sensitivity_override": "PUBLIC"}, "PUBLIC"),
+    ({"name": "e", "type": "string", "tags": [], "sensitivity": "INTERNAL", "steward_sensitivity": "PII"}, "PII"),
+    ({"name": "e", "type": "string", "tags": [], "suggested_sensitivity": "PII", "sensitivity": "PUBLIC"}, "PUBLIC"),
+    ({"name": "e", "type": "string", "tags": [], "suggested_sensitivity": "PII"}, "PII"),
+    ({"name": "e", "type": "string", "tags": [], "sensitivity": {"level": "PII", "source": "STEWARD"}}, "PII"),
+    ({"name": "e", "type": "string", "tags": [], "sensitivity": {"suggested": "PII", "override": "INTERNAL"}},
+     "INTERNAL"),
+])
+def test_column_effective_sensitivity(column, expected):
+    assert Column.from_dict(column).sensitivity == expected
