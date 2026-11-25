@@ -5,14 +5,14 @@
 
 ## 1. Summary
 
-The ticket is assigned to team-graph, but it touches the whole path from ingest to serving:
+The ticket is assigned to team-metadata, but it touches the whole path from ingest to serving:
 
 ```
-ingestion-service --(schema.discovered.v1 + columns[].tags)--> metadata-graph
-metadata-graph --(dataset.changed.v1 + columns[].classification)--> search-indexer (strict!), entitlements-service, lineage-service
-metadata-graph --(GET /v1/datasets/{urn}/columns + classification)--> entitlements-service, dq-engine   [via platform-sdk]
-entitlements-service --(POST /v1/access/decide + masked_columns)--> query-gateway                   [via platform-sdk]
-query-gateway --(POST /v1/query, masked values + masked_columns)--> data consumers
+ingestion-service --(schema.discovered.v1 + columns[].tags)--> metadata-service
+metadata-service --(dataset.changed.v1 + columns[].classification)--> search-indexer (strict!), entitlements-service, lineage-service
+metadata-service --(GET /v1/datasets/{urn}/columns + classification)--> entitlements-service, transformation-service   [via platform-sdk]
+entitlements-service --(POST /v1/access/decide + masked_columns)--> consumption-gateway                   [via platform-sdk]
+consumption-gateway --(POST /v1/query, masked values + masked_columns)--> data consumers
 ```
 
 | Repository | Owner | Impact | Acceptance criteria covered |
@@ -20,11 +20,11 @@ query-gateway --(POST /v1/query, masked values + masked_columns)--> data consume
 | platform-contracts | team-platform | code change (schemas, release 2.4.0) | all |
 | platform-sdk | team-platform | code change (models, client method, contracts pin, release 3.5.0) | 2, 3, 5 |
 | ingestion-service | team-ingest | code change | 1 |
-| metadata-graph | team-graph | code change | 1, 2 |
-| search-indexer | team-discovery | code change (vendored schema), must ship **before** metadata-graph emits | 6 |
+| metadata-service | team-metadata | code change | 1, 2 |
+| search-indexer | team-discovery | code change (vendored schema), must ship **before** metadata-service emits | 6 |
 | entitlements-service | team-access | code change | 3 |
-| query-gateway | team-serving | code change | 4 |
-| dq-engine | team-quality | code change | 5 |
+| consumption-gateway | team-consumption | code change | 4 |
+| transformation-service | team-transformation | code change | 5 |
 | platform-e2e | team-platform | code change (new e2e suite) | 1-6 |
 | lineage-service | team-discovery | verify only | 6 |
 | notification-service | team-platform | verify only | 6 |
@@ -33,28 +33,28 @@ query-gateway --(POST /v1/query, masked values + masked_columns)--> data consume
 Three constraints from the docs drive the plan:
 
 - **ADR-004**: SDK models drop undeclared fields. A new field is invisible to entitlements-service,
-  dq-engine and query-gateway until platform-sdk declares it, is released, and each of those repos
+  transformation-service and consumption-gateway until platform-sdk declares it, is released, and each of those repos
   bumps to that release.
-- **ADR-007**: entitlements-service decides and query-gateway enforces. Masking logic must not be
-  placed in metadata-graph or in the warehouse.
+- **ADR-007**: entitlements-service decides and consumption-gateway enforces. Masking logic must not be
+  placed in metadata-service or in the warehouse.
 - **ADR-009 / consumer registry**: additive optional fields stay on `.v1`. The exception is
   search-indexer, which validates strictly against a vendored contracts 2.1.0 schema with
   `additionalProperties: false` and sends unknown fields to the DLQ. It must be upgraded
-  before metadata-graph adds fields to `metadata.dataset.changed.v1`.
+  before metadata-service adds fields to `metadata.dataset.changed.v1`.
 
 ## 2. Design decisions (assumptions)
 
 1. **Classification values**: `PUBLIC | INTERNAL | CONFIDENTIAL | PII`, or `null` for unclassified.
    Every new field is optional or nullable, so existing payloads stay valid.
 2. **Raw tags travel and the mapping lives in one place.** ingestion-service only parses and forwards
-   the source tags. metadata-graph turns tags into a *suggested* classification:
+   the source tags. metadata-service turns tags into a *suggested* classification:
    `pii`->PII, `confidential`->CONFIDENTIAL, `internal`->INTERNAL, `public`->PUBLIC. The most
    sensitive match wins, and no recognised tag gives `null`.
 3. **Precedence**: a steward override (`classification_source = STEWARD`) always beats the
    suggestion. Re-ingestion updates the stored suggestion and tags but never overwrites a
    steward value. Clearing the override (PUT with `null`) falls back to the suggestion.
 4. **Column fields exposed** on both the REST API and the change event: `classification`,
-   `classification_source` (`SOURCE_TAGS | STEWARD | null`) and `tags` (source tags; dq-engine needs
+   `classification_source` (`SOURCE_TAGS | STEWARD | null`) and `tags` (source tags; transformation-service needs
    the subtype, e.g. `email`).
 5. **Change events**: a steward override publishes `metadata.dataset.changed.v1` with the existing
    `change_type = COLUMNS_CHANGED`. Adding a new enum value would be a breaking change for
@@ -72,23 +72,23 @@ Three constraints from the docs drive the plan:
 | Kind | Name | Owner | Change |
 |---|---|---|---|
 | event | `ingestion.schema.discovered.v1` | ingestion-service | + `columns[].tags: string[]` (optional) |
-| event | `metadata.dataset.changed.v1` | metadata-graph | + `dataset.columns[].classification`, `classification_source`, `tags` (optional, nullable) |
-| http | `GET /v1/datasets/{urn}/columns` | metadata-graph | `Column` + the same three fields (metadata-graph-api 1.4.0 -> 1.5.0) |
-| http | `PUT /v1/datasets/{urn}/columns/{column_name}/classification` | metadata-graph | **new**: body `{classification, reason?}`, returns `Column`; 400 invalid enum; 404 unknown dataset/column |
+| event | `metadata.dataset.changed.v1` | metadata-service | + `dataset.columns[].classification`, `classification_source`, `tags` (optional, nullable) |
+| http | `GET /v1/datasets/{urn}/columns` | metadata-service | `Column` + the same three fields (metadata-service-api 1.4.0 -> 1.5.0) |
+| http | `PUT /v1/datasets/{urn}/columns/{column_name}/classification` | metadata-service | **new**: body `{classification, reason?}`, returns `Column`; 400 invalid enum; 404 unknown dataset/column |
 | http | `POST /v1/access/decide` | entitlements-service | `Decision` + `masked_columns: string[]` (default `[]`) (entitlements-api 1.2.0 -> 1.3.0) |
-| http | `POST /v1/query` | query-gateway | 200 response + `masked_columns: string[]`; masked values (query-api 2.0.0 -> 2.1.0) |
-| http | `POST /v1/rules` (and `GET`) | dq-engine | binding + optional `classification` / `tag` selectors |
+| http | `POST /v1/query` | consumption-gateway | 200 response + `masked_columns: string[]`; masked values (query-api 2.0.0 -> 2.1.0) |
+| http | `POST /v1/rules` (and `GET`) | transformation-service | binding + optional `classification` / `tag` selectors |
 
-All of these are additive. No `.v2` topic or `/v2` API is needed. `gateway.access.logged.v1` and
-`dq.result.published.v1` are unchanged: DQ result items already carry `column` and `rule`.
+All of these are additive. No `.v2` topic or `/v2` API is needed. `consumption.access.logged.v1` and
+`transformation.result.published.v1` are unchanged: transformation result items already carry `column` and `rule`.
 
 ## 4. Work items per repository
 
 ### WI-1 platform-contracts (team-platform)
 - Edit `events/ingestion.schema.discovered.v1.json`, `events/metadata.dataset.changed.v1.json`,
-  `openapi/metadata-graph.yaml` (Column fields + new PUT path), `openapi/entitlements-service.yaml`
-  (`Decision.masked_columns`), `openapi/query-gateway.yaml` (`masked_columns`), and
-  `openapi/dq-engine.yaml` (binding schema, which is currently untyped; define it with optional selectors).
+  `openapi/metadata-service.yaml` (Column fields + new PUT path), `openapi/entitlements-service.yaml`
+  (`Decision.masked_columns`), `openapi/consumption-gateway.yaml` (`masked_columns`), and
+  `openapi/transformation-service.yaml` (binding schema, which is currently untyped; define it with optional selectors).
 - Add a `Classification` enum component and reuse it everywhere.
 - Add schema tests that every 2.3.0 example payload still validates against 2.4.0, as a
   backward-compatibility check.
@@ -118,14 +118,14 @@ All of these are additive. No `.v2` topic or `/v2` API is needed. `gateway.acces
   Other connectors are unchanged.
 - Unit tests for the parser, covering no comment, a comment without tags, mixed case, and extra text.
 - Contract test: the emitted payload validates against 2.4.0.
-- Can ship any time after WI-2, because metadata-graph is a tolerant reader. Behind flag
+- Can ship any time after WI-2, because metadata-service is a tolerant reader. Behind flag
   `ingest.propagate_column_tags`.
 
-### WI-5 metadata-graph (team-graph, owner of the ticket), depends on WI-2; phase B depends on WI-3
+### WI-5 metadata-service (team-metadata, owner of the ticket), depends on WI-2; phase B depends on WI-3
 - Bump `platform-sdk==3.5.0` and `platform-contracts==2.4.0` in `requirements.txt`.
 - `model.py`: add `tags`, `suggested_classification`, `steward_classification` and
   `classification_updated_by/at` to `Column`, plus effective `classification` and `classification_source`
-  properties. Persist them in the graph DB as column-node properties; `graph_store.py` covers the in-memory version.
+  properties. Persist them in the metadata DB as column-node properties; `metadata_store.py` covers the in-memory version.
 - `consumers.py::on_schema_discovered`: today it **rebuilds the column list from scratch**, which
   would wipe classifications. Change it to merge by column name. Keep the steward fields,
   update tags and the suggestion, drop removed columns, and add new ones.
@@ -140,7 +140,7 @@ All of these are additive. No `.v2` topic or `/v2` API is needed. `gateway.acces
 - Tests: tags -> suggestion mapping; override survives re-ingestion; clearing an override; PUT
   validation and 404; event payload with the flag on and off validates against 2.4.0; existing tests unchanged.
 - Backfill: the phase-A rollout starts storing tags from the next discovery run. Ask team-ingest for
-  a one-off forced re-discovery of Postgres sources (or a metadata-graph backfill job) so that
+  a one-off forced re-discovery of Postgres sources (or a metadata-service backfill job) so that
   existing datasets get suggestions.
 
 ### WI-6 entitlements-service (team-access), depends on WI-2 and WI-5 (API fields live)
@@ -157,7 +157,7 @@ All of these are additive. No `.v2` topic or `/v2` API is needed. `gateway.acces
 - Provider contract test: the Decision response validates against entitlements-api 1.3.0 and
   is still parseable by the SDK 3.4.x `Decision`, so old gateways keep working.
 
-### WI-7 query-gateway (team-serving), depends on WI-2; enabling depends on WI-6
+### WI-7 consumption-gateway (team-consumption), depends on WI-2; enabling depends on WI-6
 - Bump to platform-sdk 3.5.0 so that `Decision.masked_columns` is visible (ADR-004).
 - After running the query, replace the values of every column in `masked_columns`, using the
   format in section 2.7. Add `masked_columns` to the response.
@@ -168,14 +168,14 @@ All of these are additive. No `.v2` topic or `/v2` API is needed. `gateway.acces
 - Tests: masking by name, `SELECT *`, aliases, expressions, an empty `masked_columns`, and the
   flag off (byte-identical to today).
 
-### WI-8 dq-engine (team-quality), depends on WI-2 and WI-5 (API fields live)
+### WI-8 transformation-service (team-transformation), depends on WI-2 and WI-5 (API fields live)
 - Bump to platform-sdk 3.5.0. Read `classification` and `tags` from `get_columns`.
 - Extend rule bindings with optional `classification` and `tag` selectors, alongside the existing
   data-type selector. Seed bindings: `classification=PII, tag=email -> email_format`,
   `tag=phone -> phone_format`, and a generic PII rule for other PII columns (the rule set is an open question).
-- Results are emitted on `dq.result.published.v1` unchanged (`column` and `rule` already exist).
+- Results are emitted on `transformation.result.published.v1` unchanged (`column` and `rule` already exist).
 - Tests: binding resolution by classification and tag; unclassified columns get only type rules.
-- Flag `dq.pii_rules`. Watch score changes, because they feed metadata-graph and notification-service.
+- Flag `transformation.pii_rules`. Watch score changes, because they feed metadata-service and notification-service.
 
 ### WI-9 platform-e2e (team-platform), written alongside WI-4 to WI-8, run in `int`
 - New suite `pii_classification` with these cases:
@@ -185,19 +185,19 @@ All of these are additive. No `.v2` topic or `/v2` API is needed. `gateway.acces
   3. A principal without `pii:read` runs `POST /v1/query` -> the PII column is masked and listed in
      `masked_columns`. A principal with `pii:read` sees clear values.
   4. Alias and expression queries over a PII column do not leak clear values.
-  5. A batch landed on the PII dataset -> the DQ result includes `email_format` results for the column.
-  6. Regression: datasets without tags behave exactly as before, for decisions, query results and DQ.
+  5. A batch landed on the PII dataset -> the transformation result includes `email_format` results for the column.
+  6. Regression: datasets without tags behave exactly as before, for decisions, query results and transformation.
   7. search-indexer DLQ stays empty, and lineage-service still processes change events.
 
 ### WI-10 verify only: lineage-service, notification-service
 - lineage-service: run its consumer contract tests with a 2.4.0 `metadata.dataset.changed.v1`
   fixture. No SDK bump is required.
-- notification-service: run its contract tests with `dq.result.published.v1` fixtures that include PII
+- notification-service: run its contract tests with `transformation.result.published.v1` fixtures that include PII
   rule results. Confirm with the owner that lower scores do not cause a flood of emails during rollout.
 
 ### Follow-ups (documentation, no code)
 - architecture-docs: update `flows/access-decision.md` (column-level decisions),
-  `flows/ingest-to-graph.md` (tags are propagated), `flows/data-quality.md` (classification bindings),
+  `flows/ingest-to-metadata.md` (tags are propagated), `flows/transformation.md` (classification bindings),
   and `integration/consumer-registry.md`. In the registry, entitlements-service now reads columns, and
   the SDK `EntitlementsClient` reads `masked_columns`.
 - platform-catalog: no new integration edges are expected. Re-check entities in each PR.
@@ -207,11 +207,11 @@ All of these are additive. No `.v2` topic or `/v2` API is needed. `gateway.acces
 ```
 WI-1 contracts 2.4.0
   └─> WI-2 sdk 3.5.0 ───────────┬─> WI-4 ingestion (tags, flag)
-  └─> WI-3 search-indexer ──┐   ├─> WI-5a metadata-graph (store/API, events flag OFF)
-                            └───┴─> WI-5b metadata-graph events flag ON   (needs WI-3 deployed everywhere)
+  └─> WI-3 search-indexer ──┐   ├─> WI-5a metadata-service (store/API, events flag OFF)
+                            └───┴─> WI-5b metadata-service events flag ON   (needs WI-3 deployed everywhere)
                                     WI-5a ─┬─> WI-6 entitlements (masked_columns, flag)
-                                           └─> WI-8 dq-engine (PII rules, flag)
-                                    WI-2 ───> WI-7 query-gateway (masking code, flag OFF)
+                                           └─> WI-8 transformation-service (PII rules, flag)
+                                    WI-2 ───> WI-7 consumption-gateway (masking code, flag OFF)
                                     WI-6 + WI-7 ─> enable masking per environment
 WI-9 platform-e2e is developed alongside and gates every flag flip in int.
 ```
@@ -220,13 +220,13 @@ The order follows the change playbook: contracts, then SDK, then strict consumer
 consumers and readers, then producers. Behaviour is switched on last.
 
 1. WI-1, then WI-2 (team-platform).
-2. In parallel: WI-3 (search-indexer) and WI-4 (ingestion, flag off), WI-5a (metadata-graph store and API),
+2. In parallel: WI-3 (search-indexer) and WI-4 (ingestion, flag off), WI-5a (metadata-service store and API),
    WI-7 (gateway code shipped with the flag off).
 3. WI-5b: turn on classification in change events, only after WI-3 is deployed in every environment.
-4. WI-6 and WI-8 (they need classification served by the metadata-graph API).
+4. WI-6 and WI-8 (they need classification served by the metadata-service API).
 5. Turn on `ingest.propagate_column_tags` and run the backfill re-discovery.
 6. Turn on decisions (`entitlements.column_masking_decisions`), then enforcement
-   (`gateway.enforce_column_masking`), then `dq.pii_rules`. Go environment by environment
+   (`gateway.enforce_column_masking`), then `transformation.pii_rules`. Go environment by environment
    (int -> staging -> prod), and in prod domain by domain after stewards have reviewed suggestions.
 
 ## 6. Compatibility and rollout (AC6)
@@ -244,7 +244,7 @@ consumers and readers, then producers. Behaviour is switched on last.
   enforcement is on. That is the intended behaviour, but `pii:read` grants should be issued to
   legitimate users before each domain is enabled, so that existing jobs keep working. Use a
   shadow mode: decisions computed, gateway logs the columns it *would* mask, and nothing is masked.
-- **No downtime.** Rolling deploys only. The graph DB changes only add optional column-node properties,
+- **No downtime.** Rolling deploys only. The metadata DB changes only add optional column-node properties,
   so no migration lock is needed.
 
 ## 7. Cross-repository testing
@@ -253,10 +253,10 @@ consumers and readers, then producers. Behaviour is switched on last.
 |---|---|---|
 | Schema compatibility | platform-contracts | 2.3.0 fixtures validate against 2.4.0; enum defined once |
 | SDK model | platform-sdk | old/new response shapes parse; defaults when fields are absent |
-| Consumer contract | search-indexer, entitlements-service, dq-engine, query-gateway, lineage-service, notification-service, metadata-graph (consumer of schema.discovered) | each consumer tests what it reads against the 2.4.0 fixtures published by contracts |
-| Provider contract | metadata-graph (GET columns, PUT classification, change event), entitlements-service (decide), ingestion-service (schema.discovered), query-gateway (query) | provider responses and payloads validate against 2.4.0 and parse with both SDK 3.4.x and 3.5.0 |
+| Consumer contract | search-indexer, entitlements-service, transformation-service, consumption-gateway, lineage-service, notification-service, metadata-service (consumer of schema.discovered) | each consumer tests what it reads against the 2.4.0 fixtures published by contracts |
+| Provider contract | metadata-service (GET columns, PUT classification, change event), entitlements-service (decide), ingestion-service (schema.discovered), consumption-gateway (query) | provider responses and payloads validate against 2.4.0 and parse with both SDK 3.4.x and 3.5.0 |
 | End-to-end | platform-e2e in `int` | suite WI-9, run with each flag combination (off/off, decisions-only, both on) |
-| Production checks | all | search-indexer DLQ rate, entitlements decision latency (extra columns fetch), gateway masked-column counts in shadow mode, DQ score deltas |
+| Production checks | all | search-indexer DLQ rate, entitlements decision latency (extra columns fetch), gateway masked-column counts in shadow mode, transformation score deltas |
 
 ## 8. Risks
 
@@ -265,11 +265,11 @@ consumers and readers, then producers. Behaviour is switched on last.
 | search-indexer DLQs every change event (strict, vendored 2.1.0 schema) | WI-3 first; WI-5b flag gated on its deployment; DLQ alert |
 | Re-ingestion wipes classifications (`on_schema_discovered` currently replaces columns) | merge-by-name in WI-5 + e2e case 2 |
 | Masking bypass via aliases or expressions in SQL | column-lineage resolution in the gateway, fail closed; e2e case 4 |
-| New fields silently dropped by SDK (ADR-004) so masking never happens | all of entitlements, gateway and dq-engine bump to SDK 3.5.0; e2e asserts that masking happens |
+| New fields silently dropped by SDK (ADR-004) so masking never happens | all of entitlements, gateway and transformation-service bump to SDK 3.5.0; e2e asserts that masking happens |
 | Existing users lose access to clear values they relied on | shadow mode, issue `pii:read` before enforcement, roll out per domain |
 | Extra metadata call adds decision latency | use the existing cache with event-based invalidation; monitor p99 |
 | Stale cache shows an old classification after a steward change | invalidate on `COLUMNS_CHANGED`; set a TTL as a backstop |
-| PII rules lower DQ scores and trigger notification floods | flag `dq.pii_rules`; inform notification-service owners; consider a grace period |
+| PII rules lower transformation scores and trigger notification floods | flag `transformation.pii_rules`; inform notification-service owners; consider a grace period |
 | Wrong suggestions from free-text comments | suggestions are visible to stewards (`classification_source=SOURCE_TAGS`) before enforcement in each domain |
 
 ## 9. Open questions
@@ -284,5 +284,5 @@ See `open_questions` in `IMPACT_ANALYSIS.json`. The ones that block design decis
    must finish before enforcement.
 5. Whether `CONFIDENTIAL` ever triggers masking.
 6. The PII-format rule set and whether it is chosen by tag.
-7. Whether `gateway.access.logged.v1` should record masked columns for audit. That would touch
+7. Whether `consumption.access.logged.v1` should record masked columns for audit. That would touch
    usage-metering and is out of scope here.

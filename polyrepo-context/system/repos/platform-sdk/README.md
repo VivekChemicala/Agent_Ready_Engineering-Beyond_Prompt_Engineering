@@ -4,7 +4,7 @@ Shared Python SDK for platform services. Synthetic example library.
 
 Owner: team-platform. Current release: 3.4.1 (bundles platform-contracts 2.3.0).
 
-- `MetadataClient` - typed client for the metadata-graph REST API.
+- `MetadataClient` - typed client for the metadata-service REST API.
 - `EntitlementsClient` - typed client for entitlements-service decisions.
 - `events` - publish/subscribe helpers; payloads are validated against the
   bundled platform-contracts schemas before publish.

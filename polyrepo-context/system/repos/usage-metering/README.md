@@ -5,4 +5,4 @@ Synthetic example service.
 
 Owner: team-platform
 
-- Consumes `gateway.access.logged.v1` (`principal`, `dataset_urn`, `row_count`).
+- Consumes `consumption.access.logged.v1` (`principal`, `dataset_urn`, `row_count`).

@@ -11,14 +11,14 @@ EVENTS = {
     "ingestion.schema.discovered.v1": "ingestion-service",
     "ingestion.batch.landed.v1": "ingestion-service",
     "ingestion.job.completed.v1": "ingestion-service",
-    "metadata.dataset.changed.v1": "metadata-graph",
-    "dq.result.published.v1": "dq-engine",
-    "gateway.access.logged.v1": "query-gateway",
+    "metadata.dataset.changed.v1": "metadata-service",
+    "transformation.result.published.v1": "transformation-service",
+    "consumption.access.logged.v1": "consumption-gateway",
 }
 
 APIS = {
-    "metadata-graph-api": {
-        "owner": "metadata-graph",
+    "metadata-service-api": {
+        "owner": "metadata-service",
         "endpoints": ["GET /v1/datasets/{urn}", "GET /v1/datasets/{urn}/columns",
                       "PUT /v1/datasets/{urn}/owner"],
     },
@@ -27,8 +27,8 @@ APIS = {
         "endpoints": ["POST /v1/access/decide",
                       "GET /v1/principals/{principal_id}/grants"],
     },
-    "query-api": {"owner": "query-gateway", "endpoints": ["POST /v1/query"]},
-    "dq-api": {"owner": "dq-engine",
+    "query-api": {"owner": "consumption-gateway", "endpoints": ["POST /v1/query"]},
+    "transformation-api": {"owner": "transformation-service",
                "endpoints": ["GET /v1/rules", "POST /v1/rules"]},
 }
 
@@ -40,30 +40,30 @@ COMPONENTS = {
                   "ingestion.job.completed.v1"],
         consumes=[], provides_apis=[], consumes_apis=[],
         depends_on=["platform-sdk"]),
-    "metadata-graph": dict(
-        type="service", owner="team-graph", lifecycle="production",
-        description="Context graph of datasets, columns, owners and quality scores.",
+    "metadata-service": dict(
+        type="service", owner="team-metadata", lifecycle="production",
+        description="Metadata store of datasets, columns, owners and quality scores.",
         produces=["metadata.dataset.changed.v1"],
-        consumes=["ingestion.schema.discovered.v1", "dq.result.published.v1"],
-        provides_apis=["metadata-graph-api"], consumes_apis=[],
+        consumes=["ingestion.schema.discovered.v1", "transformation.result.published.v1"],
+        provides_apis=["metadata-service-api"], consumes_apis=[],
         depends_on=["platform-sdk"]),
     "entitlements-service": dict(
         type="service", owner="team-access", lifecycle="production",
         description="Access policies and grants; answers access decisions.",
         produces=[], consumes=["metadata.dataset.changed.v1"],
-        provides_apis=["entitlements-api"], consumes_apis=["metadata-graph-api"],
+        provides_apis=["entitlements-api"], consumes_apis=["metadata-service-api"],
         depends_on=["platform-sdk"]),
-    "query-gateway": dict(
-        type="service", owner="team-serving", lifecycle="production",
+    "consumption-gateway": dict(
+        type="service", owner="team-consumption", lifecycle="production",
         description="Serves query results to data consumers.",
-        produces=["gateway.access.logged.v1"], consumes=[],
+        produces=["consumption.access.logged.v1"], consumes=[],
         provides_apis=["query-api"], consumes_apis=["entitlements-api"],
         depends_on=["platform-sdk"]),
-    "dq-engine": dict(
-        type="service", owner="team-quality", lifecycle="production",
-        description="Runs data-quality rules on landed batches.",
-        produces=["dq.result.published.v1"], consumes=["ingestion.batch.landed.v1"],
-        provides_apis=["dq-api"], consumes_apis=["metadata-graph-api"],
+    "transformation-service": dict(
+        type="service", owner="team-transformation", lifecycle="production",
+        description="Runs transformation rules on landed batches.",
+        produces=["transformation.result.published.v1"], consumes=["ingestion.batch.landed.v1"],
+        provides_apis=["transformation-api"], consumes_apis=["metadata-service-api"],
         depends_on=["platform-sdk"]),
     "search-indexer": dict(
         type="service", owner="team-discovery", lifecycle="production",
@@ -80,16 +80,16 @@ COMPONENTS = {
     "notification-service": dict(
         type="service", owner="team-platform", lifecycle="production",
         description="Emails dataset owners about failed quality checks.",
-        produces=[], consumes=["dq.result.published.v1"],
-        provides_apis=[], consumes_apis=["metadata-graph-api"],
+        produces=[], consumes=["transformation.result.published.v1"],
+        provides_apis=[], consumes_apis=["metadata-service-api"],
         depends_on=["platform-sdk"]),
     "usage-metering": dict(
         type="service", owner="team-platform", lifecycle="production",
         description="Aggregates query access logs for chargeback.",
-        produces=[], consumes=["gateway.access.logged.v1"],
+        produces=[], consumes=["consumption.access.logged.v1"],
         provides_apis=[], consumes_apis=[], depends_on=[]),
     "reporting-service": dict(
-        type="service", owner="team-graph", lifecycle="decommissioned",
+        type="service", owner="team-metadata", lifecycle="decommissioned",
         description="Legacy metadata reports. Decommissioned; repository archived.",
         produces=[], consumes=[], provides_apis=[], consumes_apis=[],
         depends_on=[]),
@@ -97,7 +97,7 @@ COMPONENTS = {
         type="library", owner="team-platform", lifecycle="production",
         description="Shared Python SDK: typed REST clients and event helpers.",
         produces=[], consumes=[], provides_apis=[],
-        consumes_apis=["metadata-graph-api", "entitlements-api"],
+        consumes_apis=["metadata-service-api", "entitlements-api"],
         depends_on=["platform-contracts"]),
     "platform-contracts": dict(
         type="library", owner="team-platform", lifecycle="production",
@@ -108,8 +108,8 @@ COMPONENTS = {
         type="test-suite", owner="team-platform", lifecycle="production",
         description="Cross-service end-to-end tests run in the integration environment.",
         produces=[], consumes=[], provides_apis=[], consumes_apis=[],
-        depends_on=["ingestion-service", "metadata-graph", "entitlements-service",
-                    "query-gateway", "dq-engine"]),
+        depends_on=["ingestion-service", "metadata-service", "entitlements-service",
+                    "consumption-gateway", "transformation-service"]),
 }
 
 

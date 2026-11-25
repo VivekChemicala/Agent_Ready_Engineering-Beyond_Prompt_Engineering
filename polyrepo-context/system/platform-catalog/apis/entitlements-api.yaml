@@ -10,5 +10,5 @@ spec:
   providedBy: component:entitlements-service
   definition: platform-contracts/openapi/entitlements-service.yaml
   consumedBy:
-    - component:query-gateway
+    - component:consumption-gateway
     - component:platform-sdk

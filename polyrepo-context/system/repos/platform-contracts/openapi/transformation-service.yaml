@@ -1,0 +1,6 @@
+openapi: 3.0.3
+info: {title: transformation-api, version: 1.0.0}
+paths:
+  /v1/rules:
+    get: {responses: {"200": {description: rule bindings}}}
+    post: {responses: {"201": {description: rule binding created}}}

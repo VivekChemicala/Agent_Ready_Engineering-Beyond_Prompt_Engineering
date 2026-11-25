@@ -2,47 +2,47 @@
   "ticket": "DP-1423",
   "repositories": [
     {
-      "name": "metadata-graph",
+      "name": "metadata-service",
       "impact": "code_change",
-      "reason": "Owns the context graph: must add per-column classification to the model and store, suggest it from source tags on schema discovery, expose a steward override endpoint, return it from the columns API and include it in metadata.dataset.changed.v1 events.",
+      "reason": "Owns the metadata store: must add per-column classification to the model and store, suggest it from source tags on schema discovery, expose a steward override endpoint, return it from the columns API and include it in metadata.dataset.changed.v1 events.",
       "evidence": [
-        "workspace/metadata-graph/src/metadata_graph/model.py",
-        "workspace/metadata-graph/src/metadata_graph/consumers.py",
-        "workspace/metadata-graph/src/metadata_graph/api.py",
-        "workspace/metadata-graph/src/metadata_graph/publisher.py",
-        "workspace/metadata-graph/src/metadata_graph/graph_store.py",
-        "workspace/metadata-graph/config/settings.yaml",
-        "workspace/metadata-graph/requirements.txt",
-        "workspace/platform-catalog/components/metadata-graph.yaml",
-        "workspace/platform-catalog/apis/metadata-graph-api.yaml"
+        "workspace/metadata-service/src/metadata_service/model.py",
+        "workspace/metadata-service/src/metadata_service/consumers.py",
+        "workspace/metadata-service/src/metadata_service/api.py",
+        "workspace/metadata-service/src/metadata_service/publisher.py",
+        "workspace/metadata-service/src/metadata_service/metadata_store.py",
+        "workspace/metadata-service/config/settings.yaml",
+        "workspace/metadata-service/requirements.txt",
+        "workspace/platform-catalog/components/metadata-service.yaml",
+        "workspace/platform-catalog/apis/metadata-service-api.yaml"
       ],
       "name_source": "observed"
     },
     {
       "name": "platform-contracts",
       "impact": "code_change",
-      "reason": "Source of truth for event JSON Schemas and OpenAPI specs, so every changed event and endpoint (schema.discovered, dataset.changed, metadata-graph, entitlements and query-gateway OpenAPI) must be updated here and released first.",
+      "reason": "Source of truth for event JSON Schemas and OpenAPI specs, so every changed event and endpoint (schema.discovered, dataset.changed, metadata-service, entitlements and consumption-gateway OpenAPI) must be updated here and released first.",
       "evidence": [
         "workspace/platform-catalog/components/platform-contracts.yaml",
-        "workspace/platform-catalog/apis/metadata-graph-api.yaml",
+        "workspace/platform-catalog/apis/metadata-service-api.yaml",
         "workspace/platform-catalog/apis/entitlements-api.yaml",
         "workspace/platform-catalog/apis/query-api.yaml",
-        "workspace/metadata-graph/src/metadata_graph/publisher.py",
-        "workspace/metadata-graph/src/metadata_graph/api.py",
-        "workspace/metadata-graph/requirements.txt"
+        "workspace/metadata-service/src/metadata_service/publisher.py",
+        "workspace/metadata-service/src/metadata_service/api.py",
+        "workspace/metadata-service/requirements.txt"
       ],
       "name_source": "observed"
     },
     {
       "name": "platform-sdk",
       "impact": "code_change",
-      "reason": "Shared typed clients for metadata-graph-api (MetadataClient) and entitlements-api must expose the new column classification fields, the override call and the masked-columns field of access decisions.",
+      "reason": "Shared typed clients for metadata-service-api (MetadataClient) and entitlements-api must expose the new column classification fields, the override call and the masked-columns field of access decisions.",
       "evidence": [
         "workspace/platform-catalog/components/platform-sdk.yaml",
-        "workspace/platform-catalog/apis/metadata-graph-api.yaml",
+        "workspace/platform-catalog/apis/metadata-service-api.yaml",
         "workspace/platform-catalog/apis/entitlements-api.yaml",
-        "workspace/metadata-graph/README.md",
-        "workspace/metadata-graph/requirements.txt"
+        "workspace/metadata-service/README.md",
+        "workspace/metadata-service/requirements.txt"
       ],
       "name_source": "observed"
     },
@@ -53,14 +53,14 @@
       "evidence": [
         "workspace/platform-catalog/components/ingestion-service.yaml",
         "workspace/platform-catalog/topics.yaml",
-        "workspace/metadata-graph/src/metadata_graph/consumers.py"
+        "workspace/metadata-service/src/metadata_service/consumers.py"
       ],
       "name_source": "observed"
     },
     {
       "name": "entitlements-service",
       "impact": "code_change",
-      "reason": "Answers access decisions and must return the columns to mask when the requester lacks a pii:read grant, using classifications it gets from metadata.dataset.changed.v1 and metadata-graph-api.",
+      "reason": "Answers access decisions and must return the columns to mask when the requester lacks a pii:read grant, using classifications it gets from metadata.dataset.changed.v1 and metadata-service-api.",
       "evidence": [
         "workspace/platform-catalog/components/entitlements-service.yaml",
         "workspace/platform-catalog/apis/entitlements-api.yaml",
@@ -69,31 +69,31 @@
       "name_source": "observed"
     },
     {
-      "name": "query-gateway",
+      "name": "consumption-gateway",
       "impact": "code_change",
       "reason": "Serves query results to data consumers and must mask the columns named in the entitlements access decision before returning results.",
       "evidence": [
-        "workspace/platform-catalog/components/query-gateway.yaml",
+        "workspace/platform-catalog/components/consumption-gateway.yaml",
         "workspace/platform-catalog/apis/query-api.yaml",
         "workspace/platform-catalog/apis/entitlements-api.yaml"
       ],
       "name_source": "observed"
     },
     {
-      "name": "dq-engine",
+      "name": "transformation-service",
       "impact": "code_change",
-      "reason": "Runs data-quality rules and must read column classifications from metadata-graph-api and apply PII-format validation rules to columns classified PII.",
+      "reason": "Runs transformation rules and must read column classifications from metadata-service-api and apply PII-format validation rules to columns classified PII.",
       "evidence": [
-        "workspace/platform-catalog/components/dq-engine.yaml",
-        "workspace/platform-catalog/apis/metadata-graph-api.yaml",
-        "workspace/platform-catalog/apis/dq-api.yaml"
+        "workspace/platform-catalog/components/transformation-service.yaml",
+        "workspace/platform-catalog/apis/metadata-service-api.yaml",
+        "workspace/platform-catalog/apis/transformation-api.yaml"
       ],
       "name_source": "observed"
     },
     {
       "name": "platform-e2e",
       "impact": "code_change",
-      "reason": "Cross-service end-to-end suite already covers ingestion, metadata-graph, entitlements, query-gateway and dq-engine, and needs new scenarios for tag-to-classification, override, masking and PII DQ rules.",
+      "reason": "Cross-service end-to-end suite already covers ingestion, metadata-service, entitlements, consumption-gateway and transformation-service, and needs new scenarios for tag-to-classification, override, masking and PII transformation rules.",
       "evidence": [
         "workspace/platform-catalog/components/platform-e2e.yaml",
         "workspace/platform-catalog/dependency-graph.md"
@@ -124,10 +124,10 @@
     {
       "name": "notification-service",
       "impact": "verify_only",
-      "reason": "Calls metadata-graph-api through platform-sdk, so it must be re-tested after the SDK upgrade even though it does not use classification.",
+      "reason": "Calls metadata-service-api through platform-sdk, so it must be re-tested after the SDK upgrade even though it does not use classification.",
       "evidence": [
         "workspace/platform-catalog/components/notification-service.yaml",
-        "workspace/platform-catalog/apis/metadata-graph-api.yaml"
+        "workspace/platform-catalog/apis/metadata-service-api.yaml"
       ],
       "name_source": "observed"
     },
@@ -146,34 +146,34 @@
   "considered_not_impacted": [
     {
       "name": "usage-metering",
-      "reason": "Only consumes gateway.access.logged.v1, which this plan does not change, and has no dependency on metadata-graph, entitlements or the SDK."
+      "reason": "Only consumes consumption.access.logged.v1, which this plan does not change, and has no dependency on metadata-service, entitlements or the SDK."
     },
     {
       "name": "reporting-service",
-      "reason": "Listed as a dataset.changed consumer in the metadata-graph README, but the catalog marks it decommissioned with an archived repository, and topics.yaml does not list it as a consumer."
+      "reason": "Listed as a dataset.changed consumer in the metadata-service README, but the catalog marks it decommissioned with an archived repository, and topics.yaml does not list it as a consumer."
     }
   ],
   "dependencies": [
-    {"consumer": "metadata-graph", "provider": "ingestion-service", "via": "event", "contract": "ingestion.schema.discovered.v1"},
-    {"consumer": "metadata-graph", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
-    {"consumer": "metadata-graph", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
+    {"consumer": "metadata-service", "provider": "ingestion-service", "via": "event", "contract": "ingestion.schema.discovered.v1"},
+    {"consumer": "metadata-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "metadata-service", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
     {"consumer": "ingestion-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
     {"consumer": "platform-sdk", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
-    {"consumer": "platform-sdk", "provider": "metadata-graph", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
-    {"consumer": "platform-sdk", "provider": "metadata-graph", "via": "http", "contract": "PUT /v1/datasets/{urn}/columns/{column}/classification"},
+    {"consumer": "platform-sdk", "provider": "metadata-service", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
+    {"consumer": "platform-sdk", "provider": "metadata-service", "via": "http", "contract": "PUT /v1/datasets/{urn}/columns/{column}/classification"},
     {"consumer": "platform-sdk", "provider": "entitlements-service", "via": "http", "contract": "entitlements-api access decision endpoint (POST /v1/access/decisions, path inferred)"},
-    {"consumer": "entitlements-service", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
-    {"consumer": "entitlements-service", "provider": "metadata-graph", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
+    {"consumer": "entitlements-service", "provider": "metadata-service", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "entitlements-service", "provider": "metadata-service", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
     {"consumer": "entitlements-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
-    {"consumer": "query-gateway", "provider": "entitlements-service", "via": "http", "contract": "entitlements-api access decision endpoint (POST /v1/access/decisions, path inferred)"},
-    {"consumer": "query-gateway", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
-    {"consumer": "dq-engine", "provider": "metadata-graph", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
-    {"consumer": "dq-engine", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
-    {"consumer": "lineage-service", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "consumption-gateway", "provider": "entitlements-service", "via": "http", "contract": "entitlements-api access decision endpoint (POST /v1/access/decisions, path inferred)"},
+    {"consumer": "consumption-gateway", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "transformation-service", "provider": "metadata-service", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
+    {"consumer": "transformation-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "lineage-service", "provider": "metadata-service", "via": "event", "contract": "metadata.dataset.changed.v1"},
     {"consumer": "lineage-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
-    {"consumer": "search-indexer", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "search-indexer", "provider": "metadata-service", "via": "event", "contract": "metadata.dataset.changed.v1"},
     {"consumer": "search-indexer", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
-    {"consumer": "notification-service", "provider": "metadata-graph", "via": "http", "contract": "metadata-graph-api (via platform-sdk MetadataClient)"},
+    {"consumer": "notification-service", "provider": "metadata-service", "via": "http", "contract": "metadata-service-api (via platform-sdk MetadataClient)"},
     {"consumer": "notification-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"}
   ],
   "contracts": [
@@ -188,7 +188,7 @@
     {
       "kind": "event",
       "name": "metadata.dataset.changed.v1",
-      "owner": "metadata-graph",
+      "owner": "metadata-service",
       "change": "modify",
       "compatibility": "additive",
       "description": "Add optional per-column 'classification' (PUBLIC|INTERNAL|CONFIDENTIAL|PII or null), 'classification_source' (SUGGESTED|STEWARD) and 'pii_type' (e.g. email, phone) to dataset.columns; classification changes are published with the existing change_type COLUMNS_CHANGED so the change_type enum is not widened."
@@ -196,7 +196,7 @@
     {
       "kind": "http",
       "name": "GET /v1/datasets/{urn}/columns",
-      "owner": "metadata-graph",
+      "owner": "metadata-service",
       "change": "modify",
       "compatibility": "additive",
       "description": "Each column object gains optional 'classification', 'classification_source', 'suggested_classification', 'pii_type', 'classified_by' and 'classified_at' fields."
@@ -204,7 +204,7 @@
     {
       "kind": "http",
       "name": "PUT /v1/datasets/{urn}/columns/{column}/classification",
-      "owner": "metadata-graph",
+      "owner": "metadata-service",
       "change": "new",
       "compatibility": "additive",
       "description": "New steward endpoint taking {classification, pii_type?, reason?} that sets or overrides a column's classification (source STEWARD), returns the updated column, and publishes metadata.dataset.changed.v1; 400 on invalid value, 404 on unknown dataset or column."
@@ -220,7 +220,7 @@
     {
       "kind": "http",
       "name": "POST /v1/queries (query-api; exact path inferred)",
-      "owner": "query-gateway",
+      "owner": "consumption-gateway",
       "change": "modify",
       "compatibility": "additive",
       "description": "Response gains 'masked_columns' metadata, and values in those columns are replaced by a type-safe mask (null or a fixed mask string) for requesters without pii:read; column names, order and types are unchanged."
@@ -228,16 +228,16 @@
   ],
   "open_questions": [
     "What is the exact access-decision endpoint and request shape in platform-contracts/openapi/entitlements-service.yaml, and does it already receive the list of requested columns? (Not visible in this workspace; path above is inferred.)",
-    "What is the exact query-api results endpoint in platform-contracts/openapi/query-gateway.yaml, and what mask representation do consumers accept (null, fixed string such as '***', or format-preserving)?",
+    "What is the exact query-api results endpoint in platform-contracts/openapi/consumption-gateway.yaml, and what mask representation do consumers accept (null, fixed string such as '***', or format-preserving)?",
     "Does a 'pii:read' grant type already exist in entitlements-service, or must it be created and assigned to current PII users before masking is enforced?",
     "Does ingestion-service already capture source column comments/tags from connectors, or does each connector need work to read them?",
-    "Should a SUGGESTED PII classification (not yet confirmed by a steward) trigger masking and PII DQ rules, or only a STEWARD-confirmed one? Plan assumes the effective classification (steward override, else suggestion) is used.",
+    "Should a SUGGESTED PII classification (not yet confirmed by a steward) trigger masking and PII transformation rules, or only a STEWARD-confirmed one? Plan assumes the effective classification (steward override, else suggestion) is used.",
     "What classification should existing and untagged columns get: null/unclassified (treated as non-PII, non-breaking) or a default such as INTERNAL? Is a backfill (re-discovery or bulk steward import) required before enforcement?",
-    "Who is allowed to call the steward override endpoint, and how does metadata-graph authorize it today (it has no entitlements dependency in the catalog)?",
+    "Who is allowed to call the steward override endpoint, and how does metadata-service authorize it today (it has no entitlements dependency in the catalog)?",
     "Which tag-to-classification mapping is authoritative (e.g. pii/email/phone/ssn -> PII, confidential -> CONFIDENTIAL) and who owns it?",
-    "Which PII-format rules should dq-engine apply per pii_type (email, phone, national id, etc.), and should failures change dq.result.published.v1 (currently assumed unchanged)?",
-    "Do metadata.dataset.changed.v1 consumers (search-indexer, lineage-service, entitlements-service) validate with additionalProperties:false? If so they must upgrade platform-contracts before metadata-graph starts emitting the new fields.",
-    "Should query-gateway record masked columns in gateway.access.logged.v1 for audit? Assumed out of scope so usage-metering is not affected.",
-    "The metadata-graph README lists reporting-service (decommissioned) as a consumer and omits lineage-service and search-indexer; the catalog also omits metadata-graph's direct platform-contracts dependency seen in requirements.txt. Should these be corrected as part of this work?"
+    "Which PII-format rules should transformation-service apply per pii_type (email, phone, national id, etc.), and should failures change transformation.result.published.v1 (currently assumed unchanged)?",
+    "Do metadata.dataset.changed.v1 consumers (search-indexer, lineage-service, entitlements-service) validate with additionalProperties:false? If so they must upgrade platform-contracts before metadata-service starts emitting the new fields.",
+    "Should consumption-gateway record masked columns in consumption.access.logged.v1 for audit? Assumed out of scope so usage-metering is not affected.",
+    "The metadata-service README lists reporting-service (decommissioned) as a consumer and omits lineage-service and search-indexer; the catalog also omits metadata-service's direct platform-contracts dependency seen in requirements.txt. Should these be corrected as part of this work?"
   ]
 }

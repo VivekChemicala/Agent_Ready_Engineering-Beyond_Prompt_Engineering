@@ -13,10 +13,10 @@ spec:
   system: data-platform
   providesApis: []
   consumesApis:
-    - metadata-graph-api
+    - metadata-service-api
   dependsOn:
     - component:platform-sdk
   events:
     produces: []
     consumes:
-      - dq.result.published.v1
+      - transformation.result.published.v1

@@ -12,7 +12,7 @@
     "platform-contracts|search-indexer"
   ],
   "edges_incorrect": [
-    "reporting-service->metadata-graph"
+    "reporting-service->metadata-service"
   ],
   "contracts_correct": [
     "C1",

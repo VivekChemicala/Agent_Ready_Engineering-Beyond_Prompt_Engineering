@@ -2,30 +2,30 @@
   "ticket": "DP-1423",
   "repositories": [
     {
-      "name": "metadata-graph",
+      "name": "metadata-service",
       "impact": "code_change",
       "reason": "Owns the column model, ingestion consumer, metadata REST API and metadata.dataset.changed.v1 publisher, so it must suggest classifications from source tags, store steward overrides per column, expose a set/override endpoint and include classification in column responses and change events.",
       "evidence": [
-        "workspace/metadata-graph/README.md",
-        "workspace/metadata-graph/config/settings.yaml",
-        "workspace/metadata-graph/src/metadata_graph/model.py",
-        "workspace/metadata-graph/src/metadata_graph/consumers.py",
-        "workspace/metadata-graph/src/metadata_graph/api.py",
-        "workspace/metadata-graph/src/metadata_graph/publisher.py",
-        "workspace/metadata-graph/src/metadata_graph/graph_store.py",
-        "workspace/metadata-graph/tests/test_api.py",
-        "workspace/metadata-graph/tests/test_consumers.py"
+        "workspace/metadata-service/README.md",
+        "workspace/metadata-service/config/settings.yaml",
+        "workspace/metadata-service/src/metadata_service/model.py",
+        "workspace/metadata-service/src/metadata_service/consumers.py",
+        "workspace/metadata-service/src/metadata_service/api.py",
+        "workspace/metadata-service/src/metadata_service/publisher.py",
+        "workspace/metadata-service/src/metadata_service/metadata_store.py",
+        "workspace/metadata-service/tests/test_api.py",
+        "workspace/metadata-service/tests/test_consumers.py"
       ],
       "name_source": "observed"
     },
     {
       "name": "platform-contracts",
       "impact": "code_change",
-      "reason": "Spec of record for the metadata-graph OpenAPI and the event schemas, so the new classification endpoint, additive column fields, the additive event fields and the access-decision masking field must be defined here first.",
+      "reason": "Spec of record for the metadata-service OpenAPI and the event schemas, so the new classification endpoint, additive column fields, the additive event fields and the access-decision masking field must be defined here first.",
       "evidence": [
-        "workspace/metadata-graph/src/metadata_graph/api.py",
-        "workspace/metadata-graph/src/metadata_graph/publisher.py",
-        "workspace/metadata-graph/requirements.txt"
+        "workspace/metadata-service/src/metadata_service/api.py",
+        "workspace/metadata-service/src/metadata_service/publisher.py",
+        "workspace/metadata-service/requirements.txt"
       ],
       "name_source": "observed"
     },
@@ -34,10 +34,10 @@
       "impact": "code_change",
       "reason": "REST clients must use its MetadataClient, so it needs classification fields on column models and a method to set/override a column classification, released as a backward-compatible minor version.",
       "evidence": [
-        "workspace/metadata-graph/README.md",
-        "workspace/metadata-graph/requirements.txt",
-        "workspace/metadata-graph/src/metadata_graph/consumers.py",
-        "workspace/metadata-graph/src/metadata_graph/publisher.py"
+        "workspace/metadata-service/README.md",
+        "workspace/metadata-service/requirements.txt",
+        "workspace/metadata-service/src/metadata_service/consumers.py",
+        "workspace/metadata-service/src/metadata_service/publisher.py"
       ],
       "name_source": "observed"
     },
@@ -46,9 +46,9 @@
       "impact": "code_change",
       "reason": "Produces ingestion.schema.discovered.v1, whose column entries currently carry only name/type/nullable, so it must additionally forward the source column comment and parsed tags (e.g. tags: pii,email) for classification suggestion.",
       "evidence": [
-        "workspace/metadata-graph/README.md",
-        "workspace/metadata-graph/config/settings.yaml",
-        "workspace/metadata-graph/src/metadata_graph/consumers.py"
+        "workspace/metadata-service/README.md",
+        "workspace/metadata-service/config/settings.yaml",
+        "workspace/metadata-service/src/metadata_service/consumers.py"
       ],
       "name_source": "inferred"
     },
@@ -57,25 +57,25 @@
       "impact": "code_change",
       "reason": "Consumes metadata.dataset.changed.v1 and is the natural owner of access decisions, so it must store per-column classification from the event and return the columns to mask when the requester lacks a pii:read grant.",
       "evidence": [
-        "workspace/metadata-graph/README.md"
+        "workspace/metadata-service/README.md"
       ],
       "name_source": "observed"
     },
     {
-      "name": "query-service",
+      "name": "consumption-service",
       "impact": "code_change",
       "reason": "Whichever service returns query results to data consumers (not present in the workspace) must apply the masked-column list from the access decision to result values.",
       "evidence": [],
       "name_source": "inferred"
     },
     {
-      "name": "data-quality-service",
+      "name": "data-transformation-service",
       "impact": "code_change",
-      "reason": "Produces dq.result.published.v1 and runs DQ checks, so it must look up column classifications and apply PII-format validation rules to PII columns.",
+      "reason": "Produces transformation.result.published.v1 and runs transformation checks, so it must look up column classifications and apply PII-format validation rules to PII columns.",
       "evidence": [
-        "workspace/metadata-graph/README.md",
-        "workspace/metadata-graph/config/settings.yaml",
-        "workspace/metadata-graph/src/metadata_graph/consumers.py"
+        "workspace/metadata-service/README.md",
+        "workspace/metadata-service/config/settings.yaml",
+        "workspace/metadata-service/src/metadata_service/consumers.py"
       ],
       "name_source": "inferred"
     },
@@ -84,30 +84,30 @@
       "impact": "verify_only",
       "reason": "Consumes metadata.dataset.changed.v1, which only gains additive optional fields, so its event parsing must be re-verified as a tolerant reader (unless it also serves query results to consumers, see open questions).",
       "evidence": [
-        "workspace/metadata-graph/README.md"
+        "workspace/metadata-service/README.md"
       ],
       "name_source": "observed"
     }
   ],
   "considered_not_impacted": [
     {
-      "name": "graph database (GRAPH_DB_URL)",
-      "reason": "Infrastructure rather than a repository; the new column properties are additive node properties written by metadata-graph and need no separate repo change, though any schema/index migration would live in metadata-graph."
+      "name": "metadata database (METADATA_DB_URL)",
+      "reason": "Infrastructure rather than a repository; the new column properties are additive node properties written by metadata-service and need no separate repo change, though any schema/index migration would live in metadata-service."
     }
   ],
   "dependencies": [
-    {"consumer": "metadata-graph", "provider": "ingestion-service", "via": "event", "contract": "ingestion.schema.discovered.v1"},
-    {"consumer": "metadata-graph", "provider": "data-quality-service", "via": "event", "contract": "dq.result.published.v1"},
-    {"consumer": "entitlements-service", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
-    {"consumer": "reporting-service", "provider": "metadata-graph", "via": "event", "contract": "metadata.dataset.changed.v1"},
-    {"consumer": "data-quality-service", "provider": "metadata-graph", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
-    {"consumer": "query-service", "provider": "entitlements-service", "via": "http", "contract": "POST /v1/access-decisions"},
-    {"consumer": "metadata-graph", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
-    {"consumer": "metadata-graph", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
-    {"consumer": "data-quality-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "metadata-service", "provider": "ingestion-service", "via": "event", "contract": "ingestion.schema.discovered.v1"},
+    {"consumer": "metadata-service", "provider": "data-transformation-service", "via": "event", "contract": "transformation.result.published.v1"},
+    {"consumer": "entitlements-service", "provider": "metadata-service", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "reporting-service", "provider": "metadata-service", "via": "event", "contract": "metadata.dataset.changed.v1"},
+    {"consumer": "data-transformation-service", "provider": "metadata-service", "via": "http", "contract": "GET /v1/datasets/{urn}/columns"},
+    {"consumer": "consumption-service", "provider": "entitlements-service", "via": "http", "contract": "POST /v1/access-decisions"},
+    {"consumer": "metadata-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
+    {"consumer": "metadata-service", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
+    {"consumer": "data-transformation-service", "provider": "platform-sdk", "via": "library", "contract": "platform-sdk"},
     {"consumer": "entitlements-service", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
     {"consumer": "ingestion-service", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
-    {"consumer": "query-service", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
+    {"consumer": "consumption-service", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"},
     {"consumer": "reporting-service", "provider": "platform-contracts", "via": "library", "contract": "platform-contracts"}
   ],
   "contracts": [
@@ -122,7 +122,7 @@
     {
       "kind": "event",
       "name": "metadata.dataset.changed.v1",
-      "owner": "metadata-graph",
+      "owner": "metadata-service",
       "change": "modify",
       "compatibility": "additive",
       "description": "Add optional dataset.columns[].classification (PUBLIC|INTERNAL|CONFIDENTIAL|PII), columns[].classification_source (SUGGESTED|STEWARD) and columns[].tags; classification-only changes are published with the existing change_type COLUMNS_CHANGED so no new enum value is introduced."
@@ -130,7 +130,7 @@
     {
       "kind": "http",
       "name": "GET /v1/datasets/{urn}/columns",
-      "owner": "metadata-graph",
+      "owner": "metadata-service",
       "change": "modify",
       "compatibility": "additive",
       "description": "Each column object gains classification, classification_source, suggested_classification and tags fields; existing fields unchanged."
@@ -138,7 +138,7 @@
     {
       "kind": "http",
       "name": "PUT /v1/datasets/{urn}/columns/{column}/classification",
-      "owner": "metadata-graph",
+      "owner": "metadata-service",
       "change": "new",
       "compatibility": "additive",
       "description": "Steward sets/overrides a column classification with body {classification, reason?}; validates the enum, returns the updated column (404 on unknown dataset/column, 400 INVALID_CLASSIFICATION), persists classification_source=STEWARD and publishes metadata.dataset.changed.v1."
@@ -154,22 +154,22 @@
     {
       "kind": "http",
       "name": "POST /v1/queries",
-      "owner": "query-service",
+      "owner": "consumption-service",
       "change": "modify",
       "compatibility": "additive",
       "description": "Result values of masked columns are replaced by a mask token of unchanged column type/shape and the response gains optional masked_columns metadata; path is inferred because the query API is not in the workspace."
     }
   ],
   "open_questions": [
-    "Which repository returns query results to data consumers (query-service is inferred; is it reporting-service, a separate query gateway, or the warehouse layer)?",
-    "Exact names and APIs of the ingestion service, data-quality service and entitlements access-decision endpoint, none of which are in the workspace.",
+    "Which repository returns query results to data consumers (consumption-service is inferred; is it reporting-service, a separate consumption gateway, or the warehouse layer)?",
+    "Exact names and APIs of the ingestion service, transformation service and entitlements access-decision endpoint, none of which are in the workspace.",
     "What classification do unclassified/existing columns get: none (null), INTERNAL by default, or a backfilled suggestion?",
     "Should CONFIDENTIAL columns also be masked (and under which grant), or is masking strictly PII vs pii:read as the ticket states?",
     "Who may call the classification override endpoint (steward role/grant name) and should overrides be audited and reversible to the suggested value?",
     "What is the full tag-to-classification mapping (pii, email, phone, ssn, confidential, internal, public) and the precedence when tags conflict?",
     "Should a steward override survive re-ingestion even if source tags later change, and should a tag change that raises sensitivity override a lower steward value?",
     "Masking format: fixed token, null, partial (e.g. j***@x.com), or hash? Must masked values preserve type for typed consumers?",
-    "Which PII-format rules apply per PII subtype (email, phone, SSN) and where are rule definitions owned (data-quality-service config vs platform-contracts)?",
+    "Which PII-format rules apply per PII subtype (email, phone, SSN) and where are rule definitions owned (data-transformation-service config vs platform-contracts)?",
     "Do strict-schema consumers of metadata.dataset.changed.v1 (entitlements-service, reporting-service) reject unknown fields, which would make the additive change effectively breaking?",
     "Does platform-sdk generate its models from platform-contracts (implying a release ordering), and which versions follow platform-sdk 3.4.1 / platform-contracts 2.3.0?"
   ]

@@ -11,12 +11,12 @@
   "edges_correct": 9,
   "edges_total": 11,
   "edges_missed": [
-    "lineage-service|metadata-graph",
+    "lineage-service|metadata-service",
     "platform-contracts|search-indexer"
   ],
   "edges_incorrect": [
     "platform-e2e->platform-sdk",
-    "reporting-service->metadata-graph"
+    "reporting-service->metadata-service"
   ],
   "contracts_correct": [
     "C1",

@@ -13,7 +13,7 @@ spec:
   system: data-platform
   providesApis: []
   consumesApis:
-    - metadata-graph-api
+    - metadata-service-api
     - entitlements-api
   dependsOn:
     - component:platform-contracts

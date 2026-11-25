@@ -41,7 +41,7 @@
     "P6": 1,
     "P7": 2,
     "P8": 1,
-    "notes": "Puts masking enforcement in decommissioned reporting-service, misses query-gateway, search-indexer and platform-e2e, and treats SDK as tolerant rather than field-dropping."
+    "notes": "Puts masking enforcement in decommissioned reporting-service, misses consumption-gateway, search-indexer and platform-e2e, and treats SDK as tolerant rather than field-dropping."
   },
   "P05": {
     "P1": 2,
@@ -85,7 +85,7 @@
     "P6": 1,
     "P7": 2,
     "P8": 1,
-    "notes": "Inferred query-service/data-quality-service, verify-only reporting-service, no search-indexer or platform-e2e, no owning teams, and SDK assumed tolerant."
+    "notes": "Inferred consumption-service/data-transformation-service, verify-only reporting-service, no search-indexer or platform-e2e, no owning teams, and SDK assumed tolerant."
   },
   "P09": {
     "P1": 2,
@@ -96,7 +96,7 @@
     "P6": 2,
     "P7": 2,
     "P8": 2,
-    "notes": "Complete and correct: search-indexer before WI-4b, ADR-004 SDK bumps, decide/enforce with fail-closed, platform-e2e int suite with DQ, flags, backfill and rollback."
+    "notes": "Complete and correct: search-indexer before WI-4b, ADR-004 SDK bumps, decide/enforce with fail-closed, platform-e2e int suite with transformation, flags, backfill and rollback."
   },
   "P10": {
     "P1": 1,
@@ -107,7 +107,7 @@
     "P6": 1,
     "P7": 2,
     "P8": 1,
-    "notes": "Misses search-indexer and query-gateway (uses inferred query-service), keeps reporting-service as a consumer to verify, no owning teams, and e2e is generic staging rather than platform-e2e."
+    "notes": "Misses search-indexer and consumption-gateway (uses inferred consumption-service), keeps reporting-service as a consumer to verify, no owning teams, and e2e is generic staging rather than platform-e2e."
   },
   "P11": {
     "P1": 2,

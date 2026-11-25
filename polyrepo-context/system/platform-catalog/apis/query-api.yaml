@@ -6,7 +6,7 @@ metadata:
 spec:
   type: openapi
   lifecycle: production
-  owner: team-serving
-  providedBy: component:query-gateway
-  definition: platform-contracts/openapi/query-gateway.yaml
+  owner: team-consumption
+  providedBy: component:consumption-gateway
+  definition: platform-contracts/openapi/consumption-gateway.yaml
   consumedBy: []

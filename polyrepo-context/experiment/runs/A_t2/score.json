@@ -2,9 +2,9 @@
   "repos_correct": 6,
   "repos_total": 10,
   "repos_missed": [
+    "consumption-gateway",
     "lineage-service",
     "platform-e2e",
-    "query-gateway",
     "search-indexer"
   ],
   "repos_incorrect": [
@@ -14,14 +14,14 @@
   "edges_correct": 6,
   "edges_total": 11,
   "edges_missed": [
-    "entitlements-service|query-gateway",
-    "lineage-service|metadata-graph",
-    "metadata-graph|search-indexer",
-    "platform-contracts|search-indexer",
-    "platform-sdk|query-gateway"
+    "consumption-gateway|entitlements-service",
+    "consumption-gateway|platform-sdk",
+    "lineage-service|metadata-service",
+    "metadata-service|search-indexer",
+    "platform-contracts|search-indexer"
   ],
   "edges_incorrect": [
-    "reporting-service->metadata-graph",
+    "reporting-service->metadata-service",
     "reporting-service->entitlements-service",
     "reporting-service->platform-sdk"
   ],

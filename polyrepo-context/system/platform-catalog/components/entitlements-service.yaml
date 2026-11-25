@@ -14,7 +14,7 @@ spec:
   providesApis:
     - entitlements-api
   consumesApis:
-    - metadata-graph-api
+    - metadata-service-api
   dependsOn:
     - component:platform-sdk
   events:

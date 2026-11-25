@@ -6,11 +6,11 @@ Machine-readable impact data: `IMPACT_ANALYSIS.json` in this folder.
 
 ## 1. Summary
 
-The ticket is owned by team-graph, but only about a third of the work is in
-`metadata-graph`. Data enters through `ingestion-service`, contracts are owned by
+The ticket is owned by team-metadata, but only about a third of the work is in
+`metadata-service`. Data enters through `ingestion-service`, contracts are owned by
 `platform-contracts` and wrapped by `platform-sdk`, decisions come from
-`entitlements-service`, enforcement is in `query-gateway`, and quality rules run in
-`dq-engine`. Two compatibility hazards drive the ordering:
+`entitlements-service`, enforcement is in `consumption-gateway`, and quality rules run in
+`transformation-service`. Two compatibility hazards drive the ordering:
 
 1. **platform-sdk drops undeclared fields.** `Column`, `Dataset` and `Decision` are
    explicit dataclasses. A consumer still on SDK 3.4.1 silently loses
@@ -19,7 +19,7 @@ The ticket is owned by team-graph, but only about a third of the work is in
 2. **search-indexer validates strictly against a stale vendored schema.** Its copy of
    `metadata.dataset.changed.v1` was vendored from platform-contracts 2.1.0 and sets
    `additionalProperties: false` on the event, on `dataset` and on each column. As
-   soon as `metadata-graph` adds any column field, every change event goes to
+   soon as `metadata-service` adds any column field, every change event goes to
    `search-indexer.dlq` and the catalog index stops updating.
 
 Every contract change below is additive (optional fields, one new endpoint), so it
@@ -34,16 +34,16 @@ fits a platform-contracts **minor** release (2.3.0 → 2.4.0). No `.v2` topics o
 | R2 | platform-sdk | team-platform | code change | R1 |
 | R3 | search-indexer | team-discovery | code change | R1 (schema text) |
 | R4 | reporting-service (not in workspace) | unknown | verify only | R1 |
-| R5 | metadata-graph | team-graph | code change | R2; event emission gated on R3, R4 |
+| R5 | metadata-service | team-metadata | code change | R2; event emission gated on R3, R4 |
 | R6 | ingestion-service | team-ingest | code change | R2 (tags reach classification only after R5) |
 | R7 | entitlements-service | team-access | code change | R2, R5 |
-| R8 | query-gateway | team-serving | code change | R2, R7 |
-| R9 | dq-engine | team-quality | code change | R2, R5 |
+| R8 | consumption-gateway | team-consumption | code change | R2, R7 |
+| R9 | transformation-service | team-transformation | code change | R2, R5 |
 | R10 | platform-e2e | team-platform + each team | code change | all of the above |
 
 Not impacted: `lineage-service` (tolerant reader of `dataset.urn`/`dataset.name`),
 `notification-service` (reads only `score`, `dataset_urn` and owner),
-`usage-metering` (`gateway.access.logged.v1` is unchanged).
+`usage-metering` (`consumption.access.logged.v1` is unchanged).
 
 ### R1 platform-contracts (release 2.4.0)
 - `events/ingestion.schema.discovered.v1.json`: add optional
@@ -53,13 +53,13 @@ Not impacted: `lineage-service` (tolerant reader of `dataset.urn`/`dataset.name`
   `classification_source` (enum `SUGGESTED|STEWARD`, nullable) and `tags`
   (array<string>). Do **not** add a new `change_type` value. A classification edit
   is published as `UPDATED`, because a new enum value would break strict readers.
-- `openapi/metadata-graph.yaml` (1.4.0 → 1.5.0): add the same three optional fields
+- `openapi/metadata-service.yaml` (1.4.0 → 1.5.0): add the same three optional fields
   to `Column`. Add `PUT /v1/datasets/{urn}/columns/{column_name}/classification`
   with request `{classification}`, a 200 response returning `Column`, and
   400/403/404 errors.
 - `openapi/entitlements-service.yaml` (1.2.0 → 1.3.0): add
   `masked_columns: array<string>` (default `[]`) to `Decision`.
-- `openapi/query-gateway.yaml` (2.0.0 → 2.1.0): add optional
+- `openapi/consumption-gateway.yaml` (2.0.0 → 2.1.0): add optional
   `masked_columns: array<string>` to the 200 response, and document the mask value.
 - Add contract tests: old sample payloads must still validate (backward), and new
   payloads must validate against the new schemas.
@@ -68,7 +68,7 @@ Not impacted: `lineage-service` (tolerant reader of `dataset.urn`/`dataset.name`
 - Bump the `platform-contracts` pin to 2.4.0 in `pyproject.toml`.
 - `metadata.Column`: add `classification: str | None = None`,
   `classification_source: str | None = None` and `tags: tuple[str, ...] = ()`.
-  Parse them with `.get()` so the SDK keeps working against an old metadata-graph.
+  Parse them with `.get()` so the SDK keeps working against an old metadata-service.
 - `MetadataClient.set_column_classification(urn, column_name, classification)`.
 - `entitlements.Decision`: add `masked_columns: tuple[str, ...] = ()` (and optionally
   `policy_id`). Parse with `body.get("masked_columns", [])`. Add a way to tell
@@ -91,20 +91,20 @@ Not impacted: `lineage-service` (tolerant reader of `dataset.urn`/`dataset.name`
   the released platform-contracts version. This drift is what caused the hazard.
 
 ### R4 reporting-service (verify only; repository not available)
-- It is listed in the metadata-graph README as a consumer of
+- It is listed in the metadata-service README as a consumer of
   `metadata.dataset.changed.v1`. Ask its owners to replay 2.4.0 sample events and
   confirm it is a tolerant reader.
 - Also confirm whether it exposes column data to users. If it does, masking may
   also be needed there (see open questions).
 - Treat the result as a gate on R5 enabling the event fields.
 
-### R5 metadata-graph (team-graph, owner of the ticket)
+### R5 metadata-service (team-metadata, owner of the ticket)
 - **Model** (`model.py`): add `classification`, `classification_source` and `tags`
   to `Column`, all optional and defaulting to `None`/empty.
-- **Storage** (`graph_store.py`, production graph DB): add the column-node
+- **Storage** (`metadata_store.py`, production metadata DB): add the column-node
   properties. Existing nodes need no migration, because absent means unclassified.
   Persist an audit trail of steward changes (who, when, old value, new value), if
-  the graph DB supports it.
+  the metadata DB supports it.
 - **Suggestion on ingest** (`consumers.on_schema_discovered`):
   - Read `columns[].tags` from the event. Map them to a suggested classification
     with a configurable table in `config/settings.yaml`, e.g. `pii` → `PII`, with
@@ -143,7 +143,7 @@ Not impacted: `lineage-service` (tolerant reader of `dataset.urn`/`dataset.name`
   output changes, and add parser edge cases.
 - Other connectors: the workspace only shows Postgres. Check other connectors for
   equivalent tag sources (open question).
-- Can ship any time after R2, because metadata-graph ignores unknown column keys
+- Can ship any time after R2, because metadata-service ignores unknown column keys
   today. Suggestions only appear once R5 is live.
 
 ### R7 entitlements-service
@@ -165,11 +165,11 @@ Not impacted: `lineage-service` (tolerant reader of `dataset.urn`/`dataset.name`
 - Tests: no pii:read → PII columns listed; pii:read → `[]`; deny → `[]`; cache is
   invalidated on a change event.
 
-### R8 query-gateway
+### R8 consumption-gateway
 - `query.QueryService.run`: after the allow decision, replace the values of
   `decision.masked_columns` in each row with the mask value, and add
   `masked_columns` to the response. Keys and row count are unchanged.
-  `gateway.access.logged.v1` is unchanged.
+  `consumption.access.logged.v1` is unchanged.
 - Proposed mask value: `"***"` for string-typed columns and `null` for others, so
   typed consumers do not get type changes (open question).
 - Mapping result columns to source columns: phase 1 matches by result key name for
@@ -186,7 +186,7 @@ Not impacted: `lineage-service` (tolerant reader of `dataset.urn`/`dataset.name`
 - Tests: masked rows, unmasked rows with pii:read, the 403 path is unchanged, and
   fail-closed in enforce mode.
 
-### R9 dq-engine
+### R9 transformation-service
 - `rules/`: add PII-format rules, e.g. `pii_email_format`, `pii_phone_format` and
   `pii_ssn_format`, plus a generic `pii_format` that dispatches on the column tag.
   Null values are skipped or handled by `not_null`.
@@ -194,18 +194,18 @@ Not impacted: `lineage-service` (tolerant reader of `dataset.urn`/`dataset.name`
   `CLASSIFICATION_BINDINGS = {"PII": [...]}`. Select the format-specific rule from
   `col.tags` (e.g. `email`). If there is no subtype, use the generic check or skip
   with a recorded reason.
-- `dq.result.published.v1` shape is unchanged (`rule` is a free string), so
-  `metadata-graph` and `notification-service` need no code change.
+- `transformation.result.published.v1` shape is unchanged (`rule` is a free string), so
+  `metadata-service` and `notification-service` need no code change.
 - Flag `pii_rules_affect_score`. Start report-only, i.e. results are published but
   excluded from `score`, so existing datasets do not suddenly drop below the
   notification threshold (0.9) and flood owners.
-- Make sure DQ result payloads and logs never contain the raw PII values: results
+- Make sure transformation result payloads and logs never contain the raw PII values: results
   carry only `column`, `rule` and `passed`.
 - Bump `platform-sdk==3.5.0`, which is required to see `classification`.
 - Tests: rule unit tests; the runner applies PII rules only to PII columns.
 
 ### R10 platform-e2e
-- `test_ingest_to_graph.py`: a source column with comment `tags: pii,email` ends
+- `test_ingest_to_metadata.py`: a source column with comment `tags: pii,email` ends
   up with `classification == "PII"` and `classification_source == "SUGGESTED"`.
   A steward override survives a re-ingest.
 - `test_access_flow.py`:
@@ -215,7 +215,7 @@ Not impacted: `lineage-service` (tolerant reader of `dataset.urn`/`dataset.name`
   - The existing 403 test is unchanged.
   - After a steward reclassifies a column, the next query reflects it, which
     proves cache invalidation via `metadata.dataset.changed.v1`.
-- `test_dq_flow.py`: a PII email column with a malformed value produces a failed
+- `test_transformation_flow.py`: a PII email column with a malformed value produces a failed
   `pii_email_format` result.
 - New test: a `metadata.dataset.changed.v1` event with classification is indexed by
   search-indexer and the DLQ stays empty.
@@ -227,10 +227,10 @@ Not impacted: `lineage-service` (tolerant reader of `dataset.urn`/`dataset.name`
 R1 platform-contracts 2.4.0
   └─> R2 platform-sdk 3.5.0
         ├─> R3 search-indexer (re-vendor schema)  ─┐  gates
-        ├─> R4 reporting-service verification     ─┤  metadata-graph
-        ├─> R5 metadata-graph (store/API; event fields behind flag) <─┘
-        │     ├─> R7 entitlements-service ──> R8 query-gateway
-        │     └─> R9 dq-engine
+        ├─> R4 reporting-service verification     ─┤  metadata-service
+        ├─> R5 metadata-service (store/API; event fields behind flag) <─┘
+        │     ├─> R7 entitlements-service ──> R8 consumption-gateway
+        │     └─> R9 transformation-service
         ├─> R6 ingestion-service (tags; any time after R2)
         └─> SDK bumps in R7/R8/R9 can merge early (no behavior change)
 R10 platform-e2e: suites added alongside each step, all green before enforcement
@@ -242,8 +242,8 @@ R10 platform-e2e: suites added alongside each step, all green before enforcement
    No runtime change.
 2. **Make readers tolerant first**: deploy search-indexer with the new vendored
    schema. Get confirmation from reporting-service. Merge the SDK 3.5.0 bumps in
-   entitlements-service, query-gateway and dq-engine with all flags off.
-3. **metadata-graph**: deploy storage, API fields and the PUT endpoint. The GET
+   entitlements-service, consumption-gateway and transformation-service with all flags off.
+3. **metadata-service**: deploy storage, API fields and the PUT endpoint. The GET
    fields are additive and safe immediately. Turn on `emit_column_classification`
    in `int`, watch `search-indexer.dlq`, then turn it on in prod.
 4. **ingestion-service**: deploy tag extraction. Optionally trigger re-discovery of
@@ -251,11 +251,11 @@ R10 platform-e2e: suites added alongside each step, all green before enforcement
    override where needed.
 5. **entitlements-service**: turn on `compute_masked_columns`. Gateway is still
    `off`/`shadow`, so this has no user-visible effect.
-6. **query-gateway**: run `shadow` and compare the would-mask logs with steward
+6. **consumption-gateway**: run `shadow` and compare the would-mask logs with steward
    expectations. Grant `pii:read` to principals who legitimately need it (this
    must happen **before** enforcement, or those users lose access). Then switch to
    `enforce` per domain or tenant.
-7. **dq-engine**: turn on PII rules report-only, then
+7. **transformation-service**: turn on PII rules report-only, then
    `pii_rules_affect_score=true` once results are reviewed.
 
 Rollback: every step is controlled by its own flag. Turning a flag off returns that
@@ -270,21 +270,21 @@ are additive.
   - A diff check must reject any removed or renamed field.
 - **Consumer-driven contract tests**:
   - search-indexer: the vendored schema must accept the provider's golden
-    `metadata.dataset.changed.v1` payloads. Run this in metadata-graph CI against
+    `metadata.dataset.changed.v1` payloads. Run this in metadata-service CI against
     the latest search-indexer schema, and in search-indexer CI against the latest
     contracts.
-  - entitlements and dq-engine: SDK `MetadataClient.get_columns` against a
-    recorded metadata-graph 1.5.0 response.
-  - query-gateway: `EntitlementsClient.decide` against a recorded 1.3.0 response,
+  - entitlements and transformation-service: SDK `MetadataClient.get_columns` against a
+    recorded metadata-service 1.5.0 response.
+  - consumption-gateway: `EntitlementsClient.decide` against a recorded 1.3.0 response,
     including the old 1.2.0 response with no `masked_columns`, to exercise
     fail-closed.
 - **Unit tests** in each repository, as listed per work item.
 - **Integration / end-to-end** (`platform-e2e` in `int`): the suites in R10, run
   for each flag state (off / shadow / enforce). Include a mixed-version run (new
-  metadata-graph with old gateway, and the reverse) to prove step-by-step rollout
+  metadata-service with old gateway, and the reverse) to prove step-by-step rollout
   is safe.
 - **Production checks**: `search-indexer.dlq` depth, rate of
-  masked_columns/decision, gateway 5xx/403 rate, DQ score distribution and
+  masked_columns/decision, gateway 5xx/403 rate, transformation score distribution and
   notification volume.
 
 ## 6. Assumptions
@@ -294,14 +294,14 @@ are additive.
 - Unclassified (null) columns are not masked, which preserves current behavior.
   A stricter default needs a governance decision.
 - `pii:read` is a single global grant string checked by entitlements-service.
-- The tags-to-classification mapping lives in metadata-graph. ingestion-service
+- The tags-to-classification mapping lives in metadata-service. ingestion-service
   only forwards raw tags.
-- Column `tags` are stored and returned by metadata-graph so dq-engine can choose
+- Column `tags` are stored and returned by metadata-service so transformation-service can choose
   the PII format subtype.
-- Masking is enforced only in query-gateway, the documented consumer-facing path.
+- Masking is enforced only in consumption-gateway, the documented consumer-facing path.
   entitlements-service stays decision-only.
 - reporting-service exists outside this workspace. Its name comes from the
-  metadata-graph README.
+  metadata-service README.
 
 ## 7. Risks
 
@@ -314,7 +314,7 @@ are additive.
 | SQL aliases/expressions/joins bypass name-based masking | PII leak | Restrict enforce to simple projections first, or warehouse-side masking/views; open question |
 | Users who need PII lose access at enforcement | Business disruption | Shadow mode plus `pii:read` provisioning before enforce |
 | Mask value changes column types | Typed BI consumers break | Type-preserving mask (null for non-strings); `masked_columns` in response |
-| PII rules lower DQ scores | Spike in notification-service emails | Report-only phase before rules count toward the score |
+| PII rules lower transformation scores | Spike in notification-service emails | Report-only phase before rules count toward the score |
 | Tag parsing differs across sources | Missed or false PII suggestions | Tolerant parser, steward review, other connectors audited |
 | reporting-service unknown | Possible break or unmasked exposure | Owner verification is a gate before the event flag |
 
