@@ -16,8 +16,10 @@ Every successful create/update emits `metadata.dataset.changed.v1`.
 
 Columns in `metadata.columns.response.v1` and `metadata.dataset.changed.v1` may carry
 `sensitivity`, one of `PUBLIC` < `INTERNAL` < `CONFIDENTIAL` < `PII` (least to most restrictive,
-`platform_contracts.SENSITIVITY_LEVELS`). The field is optional for backwards compatibility; a
-column without it must be treated as `INTERNAL` (`platform_contracts.DEFAULT_SENSITIVITY`).
+`platform_contracts.SENSITIVITY_LEVELS`); any other value (other case, whitespace, `null`,
+non-strings) is rejected. The field is optional for backwards compatibility; a
+column without it must be treated as `INTERNAL` (`platform_contracts.DEFAULT_SENSITIVITY`);
+`platform_contracts.column_sensitivity(column)` applies both rules.
 
 Producer rule for `metadata.dataset.changed.v1`: every event metadata-graph emits (create,
 re-register, steward override, owner change) carries `sensitivity` on every column. The schema

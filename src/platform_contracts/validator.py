@@ -37,10 +37,15 @@ def _type_ok(value, expected) -> bool:
     return isinstance(value, _TYPES[expected])
 
 
+def _in_enum(value, enum: list) -> bool:
+    # Exact type match, so True does not pass for 1 and 1.0 does not pass for 1.
+    return any(type(value) is type(e) and value == e for e in enum)
+
+
 def _check(value, schema: dict, path: str) -> None:
     if "type" in schema and not _type_ok(value, schema["type"]):
         raise ContractError(f"{path}: expected {schema['type']}")
-    if "enum" in schema and value not in schema["enum"]:
+    if "enum" in schema and not _in_enum(value, schema["enum"]):
         raise ContractError(f"{path}: {value!r} not in {schema['enum']}")
     if isinstance(value, str) and len(value) < schema.get("minLength", 0):
         raise ContractError(f"{path}: shorter than {schema['minLength']}")

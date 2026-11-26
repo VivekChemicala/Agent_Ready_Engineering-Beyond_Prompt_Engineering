@@ -171,3 +171,71 @@ def test_all_or_none_keyword():
     _check([{"a": 1}, {"a": 2}], schema, "$")
     with pytest.raises(ContractError, match=r"\$\[1\]: missing a"):
         _check([{"a": 1}, {}], schema, "$")
+
+
+INVALID_LEVELS = ["pii", "Pii", "public", "PII ", " PII", "P II", "", "SECRET", "RESTRICTED", "UNKNOWN",
+                  None, 0, 1, 3, True, False, 1.0, [], ["PII"], {}, {"level": "PII"}]
+
+
+def _level_payloads(level):
+    column = {"name": "email", "type": "string", "tags": ["pii"], "sensitivity": level}
+    return [
+        (SENSITIVITY_REQUEST, {"sensitivity": level}),
+        ("metadata.columns.response.v1", {"urn": "urn:ds:x", "columns": [dict(column)]}),
+        ("metadata.dataset.changed.v1", _event("UPDATED", "team-crm", [dict(column)])),
+    ]
+
+
+@pytest.mark.parametrize("level", INVALID_LEVELS, ids=repr)
+def test_every_contract_rejects_levels_outside_the_four(level):
+    for schema, payload in _level_payloads(level):
+        with pytest.raises(ContractError):
+            validate(schema, payload)
+
+
+@pytest.mark.parametrize("level", ["PUBLIC", "INTERNAL", "CONFIDENTIAL", "PII"])
+def test_every_contract_accepts_the_four_levels(level):
+    for schema, payload in _level_payloads(level):
+        validate(schema, payload)
+
+
+def test_every_sensitivity_property_is_restricted_to_the_four_levels():
+    from platform_contracts import load_schema
+    from platform_contracts.validator import SCHEMA_DIR
+
+    found = []
+
+    def walk(node, where):
+        if isinstance(node, dict):
+            props = node.get("properties", {})
+            if "sensitivity" in props:
+                found.append(where)
+                assert props["sensitivity"] == {"type": "string", "enum": list(platform_contracts.SENSITIVITY_LEVELS)}
+            for key, child in node.items():
+                walk(child, f"{where}.{key}")
+        elif isinstance(node, list):
+            for child in node:
+                walk(child, where)
+
+    for path in SCHEMA_DIR.glob("*.json"):
+        walk(load_schema(path.stem), path.stem)
+    assert len(found) == 3
+
+
+def test_enum_is_type_exact():
+    from platform_contracts.validator import _check
+    with pytest.raises(ContractError):
+        _check(True, {"enum": [1]}, "$")
+    with pytest.raises(ContractError):
+        _check(1.0, {"enum": [1]}, "$")
+    _check(1, {"enum": [1]}, "$")
+
+
+def test_column_sensitivity_helper():
+    from platform_contracts import column_sensitivity
+    assert column_sensitivity({"name": "a"}) == "INTERNAL"
+    for level in platform_contracts.SENSITIVITY_LEVELS:
+        assert column_sensitivity({"sensitivity": level}) == level
+    for level in INVALID_LEVELS:
+        with pytest.raises(ContractError):
+            column_sensitivity({"sensitivity": level})

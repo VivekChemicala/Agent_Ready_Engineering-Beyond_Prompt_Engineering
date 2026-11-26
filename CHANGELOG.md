@@ -7,6 +7,9 @@
 - DP-1501: in `metadata.dataset.changed.v1`, once any column carries `sensitivity` every column
   must (new validator keyword `x-itemsAllOrNone`), so a producer cannot emit an event with a level
   missing on some column. Events without any level (2.3.0 payloads) stay valid.
+- DP-1501: `sensitivity` accepts exactly `PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `PII` everywhere
+  (case-sensitive, no other type); `enum` checks in the validator are now type-exact. Add
+  `platform_contracts.column_sensitivity(column)` (missing → `INTERNAL`, invalid → `ContractError`).
 - DP-1501: add `metadata.dataset.column.sensitivity.request.v1` for
   `PUT /v1/datasets/{urn}/columns/{column}/sensitivity`.
 
