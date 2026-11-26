@@ -13,6 +13,17 @@ where access rules are applied to result rows.
   dropped when parsing.
 - Callers pass their permissions as a set of strings; `dataset:read` is required to query.
 
+## PII masking (DP-1501, contracts 2.4.0)
+
+- Each upstream column carries `sensitivity` (`PUBLIC`, `INTERNAL`, `CONFIDENTIAL`, `PII`);
+  `Column.sensitivity` defaults to `INTERNAL` when the field is absent (2.3.0-style payloads).
+  An out-of-enum level fails contract validation -> 502 `UPSTREAM_CONTRACT`.
+- Unless the caller has `pii:read`, every non-null value of a `PII` column is replaced by `"***"`
+  (nulls stay null). Other levels are never masked.
+- Successful responses are `{"status": 200, "rows": [...], "masked_columns": [...]}`:
+  `masked_columns` lists the `PII` columns masked for this caller, in dataset column order
+  (`[]` with `pii:read` or when no column is `PII`). 403/502 responses are unchanged.
+
 ## Develop
 
 ```bash
