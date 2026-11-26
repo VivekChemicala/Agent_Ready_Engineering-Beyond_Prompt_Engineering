@@ -1,7 +1,8 @@
 """Metadata API handlers. Each returns (status, body)."""
 from platform_contracts import ContractError, validate
 
-from metadata_graph.events import EventPublisher
+from metadata_graph.events import EventPublisher, column_view
+from metadata_graph.sensitivity import suggest_sensitivity
 from metadata_graph.store import GraphStore
 
 ROUTES: list[tuple[str, str, object]] = []
@@ -29,14 +30,20 @@ def register_dataset(store: GraphStore, events: EventPublisher, params: dict, bo
         validate("metadata.dataset.register.request.v1", body)
     except ContractError as exc:
         return error(400, "INVALID_REQUEST", str(exc))
-    existed = store.exists(body["urn"])
-    dataset = {
-        "urn": body["urn"],
-        "name": body["name"],
-        "owner": body["owner"],
-        "columns": [{"name": c["name"], "type": c["type"], "tags": list(c["tags"])} for c in body["columns"]],
-    }
+    urn = body["urn"]
+    existed = store.exists(urn)
+    previous = store.get(urn) if existed else None
+    kept_levels = {}
+    if previous is not None:
+        overridden = store.overrides(urn)
+        kept_levels = {c["name"]: c.get("sensitivity") for c in previous["columns"] if c["name"] in overridden}
+    columns = []
+    for c in body["columns"]:
+        level = kept_levels.get(c["name"]) or suggest_sensitivity(c["tags"])
+        columns.append({"name": c["name"], "type": c["type"], "tags": list(c["tags"]), "sensitivity": level})
+    dataset = {"urn": urn, "name": body["name"], "owner": body["owner"], "columns": columns}
     store.put(dataset)
+    store.set_overrides(urn, {c["name"] for c in columns if c["name"] in kept_levels})
     events.dataset_changed(dataset, "UPDATED" if existed else "CREATED")
     return (200 if existed else 201), dataset
 
@@ -54,7 +61,7 @@ def get_columns(store: GraphStore, events: EventPublisher, params: dict, body, h
     dataset = store.get(params["urn"])
     if dataset is None:
         return error(404, "NOT_FOUND", f"dataset {params['urn']} not found")
-    response = {"urn": dataset["urn"], "columns": dataset["columns"]}
+    response = {"urn": dataset["urn"], "columns": [column_view(c) for c in dataset["columns"]]}
     validate("metadata.columns.response.v1", response)
     return 200, response
 
@@ -74,3 +81,24 @@ def set_owner(store: GraphStore, events: EventPublisher, params: dict, body, hea
     store.put(dataset)
     events.dataset_changed(dataset, "UPDATED")
     return 200, dataset
+
+
+@route("PUT", "/v1/datasets/{urn}/columns/{column}/sensitivity")
+def set_sensitivity(store: GraphStore, events: EventPublisher, params: dict, body, headers: dict):
+    if not _is_steward(headers):
+        return error(403, "FORBIDDEN", "steward role required")
+    dataset = store.get(params["urn"])
+    if dataset is None:
+        return error(404, "NOT_FOUND", f"dataset {params['urn']} not found")
+    column = next((c for c in dataset["columns"] if c["name"] == params["column"]), None)
+    if column is None:
+        return error(404, "NOT_FOUND", f"column {params['column']} not found in dataset {params['urn']}")
+    try:
+        validate("metadata.column.sensitivity.request.v1", body)
+    except ContractError as exc:
+        return error(400, "INVALID_REQUEST", str(exc))
+    column["sensitivity"] = body["sensitivity"]
+    store.put(dataset)
+    store.set_overrides(dataset["urn"], store.overrides(dataset["urn"]) | {column["name"]})
+    events.dataset_changed(dataset, "UPDATED")
+    return 200, column_view(column)
